@@ -7,6 +7,110 @@
 - Briefly describe your initial UML design.
 - What classes did you include, and what responsibilities did you assign to each?
 
+actions:
+1. enter a pet and input its attributes; assign the pet tasks
+2. add constraints such as availability, priority, and owner preferences
+3. schedule a plan for the pets
+
+class Pet:
+    name -> String
+    animal -> String (e.g. dog, cat, etc.)
+    tasks -> [Task]
+
+class Task:
+    title -> String
+    description -> String
+
+class Constraint:
+    title -> String
+    description -> String
+    availability -> datetime
+
+class Owner:
+    name -> String
+    pets -> [Pet]
+    constraints -> [Constraint]
+
+Mermaid JS diagram
+
+```js
+classDiagram
+    class Owner {
+        +String id
+        +String name
+        +String email
+        +List~Pet~ pets
+        +List~Constraint~ constraints
+        +Dict preferences
+        +addPet(pet: Pet): void
+        +removePet(petId: String): void
+        +addConstraint(constraint: Constraint): void
+        +getPets(): List~Pet~
+        +updatePreferences(prefs: Dict): void
+    }
+    class Pet {
+        +String id
+        +String name
+        +String animal
+        +String breed
+        +int age
+        +float weight
+        +List~Task~ tasks
+        +Dict healthInfo
+        +addTask(task: Task): void
+        +removeTask(taskId: String): void
+        +getPendingTasks(): List~Task~
+        +updateHealthInfo(info: Dict): void
+    }
+    class Task {
+        +String id
+        +String title
+        +String description
+        +String frequency
+        +int priority
+        +DateTime assignedDate
+        +String status
+        +String petId
+        +complete(): void
+        +markPending(): void
+        +isOverdue(): boolean
+        +getDaysUntilDue(): int
+    }
+    class Constraint {
+        +String id
+        +String title
+        +String description
+        +DateTime startTime
+        +DateTime endTime
+        +String ownerId
+        +isAvailable(dateTime: DateTime): boolean
+        +checkConflict(other: Constraint): boolean
+        +getDuration(): int
+    }
+    class Schedule {
+        +String id
+        +DateTime date
+        +List~Task~ scheduledTasks
+        +generateSchedule(owner: Owner): List~Task~
+        +addTaskToSchedule(task: Task): void
+        +removeTaskFromSchedule(taskId: String): void
+        +getDailyTasks(): List~Task~
+    }
+    class Notification {
+        +String id
+        +String message
+        +DateTime scheduledTime
+        +String taskId
+        +send(): void
+        +reschedule(newTime: DateTime): void
+    }
+    Owner "1" --> "*" Pet : manages
+    Owner "1" --> "*" Constraint : has
+    Pet "1" --> "*" Task : assigned
+    Schedule "1" --> "*" Task : contains
+    Task "1" --> "*" Notification : triggers
+```
+
 **b. Design changes**
 
 - Did your design change during implementation?
