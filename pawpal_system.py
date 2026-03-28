@@ -13,6 +13,7 @@ class Task:
     assigned_date: Optional[datetime] = None
     status: str = "pending"
     pet_id: str = ""
+    notifications: list["Notification"] = field(default_factory=list)
 
     def complete(self) -> None:
         self.status = "completed"
@@ -30,6 +31,9 @@ class Task:
             return -1
         delta = self.assigned_date - datetime.now()
         return delta.days
+
+    def add_notification(self, notification: "Notification") -> None:
+        self.notifications.append(notification)
 
 
 @dataclass
@@ -94,6 +98,7 @@ class Owner:
     pets: list[Pet] = field(default_factory=list)
     constraints: list[Constraint] = field(default_factory=list)
     preferences: dict = field(default_factory=dict)
+    schedules: list["Schedule"] = field(default_factory=list)
 
     def add_pet(self, pet: Pet) -> None:
         self.pets.append(pet)
@@ -114,13 +119,16 @@ class Owner:
     def update_preferences(self, prefs: dict) -> None:
         self.preferences.update(prefs)
 
+    def add_schedule(self, schedule: "Schedule") -> None:
+        self.schedules.append(schedule)
+
 
 @dataclass
 class Notification:
     id: str
     message: str
     scheduled_time: Optional[datetime] = None
-    task_id: str = ""
+    task: Optional[Task] = None
 
     def send(self) -> None:
         print(f"Notification: {self.message}")
@@ -133,11 +141,15 @@ class Notification:
 class Schedule:
     id: str
     date: datetime
+    owner: Optional[Owner] = None
     scheduled_tasks: list[Task] = field(default_factory=list)
 
-    def generate_schedule(self, owner: Owner) -> list[Task]:
+    def generate_schedule(self) -> list[Task]:
+        if not self.owner:
+            return []
+
         all_tasks = []
-        for pet in owner.pets:
+        for pet in self.owner.pets:
             all_tasks.extend(pet.tasks)
         all_tasks.sort(key=lambda t: (t.priority, t.assigned_date or datetime.min))
         return all_tasks
@@ -158,3 +170,34 @@ class Schedule:
             for t in self.scheduled_tasks
             if t.assigned_date and t.assigned_date.date() == self.date.date()
         ]
+
+
+@dataclass
+class PetManager:
+    pet_index: dict[str, Pet] = field(default_factory=dict)
+    task_index: dict[str, Task] = field(default_factory=dict)
+
+    def register_pet(self, pet: Pet) -> None:
+        self.pet_index[pet.id] = pet
+        for task in pet.tasks:
+            self.register_task(task)
+
+    def register_task(self, task: Task) -> None:
+        self.task_index[task.id] = task
+
+    def get_pet_by_id(self, pet_id: str) -> Optional[Pet]:
+        return self.pet_index.get(pet_id)
+
+    def get_task_by_id(self, task_id: str) -> Optional[Task]:
+        return self.task_index.get(task_id)
+
+    def get_all_tasks(self) -> list[Task]:
+        return list(self.task_index.values())
+
+    def remove_pet(self, pet_id: str) -> bool:
+        if pet_id in self.pet_index:
+            pet = self.pet_index.pop(pet_id)
+            for task in pet.tasks:
+                self.task_index.pop(task.id, None)
+            return True
+        return False

@@ -90,8 +90,9 @@ classDiagram
     class Schedule {
         +String id
         +DateTime date
+        +Owner owner
         +List~Task~ scheduledTasks
-        +generateSchedule(owner: Owner): List~Task~
+        +generateSchedule(): List~Task~
         +addTaskToSchedule(task: Task): void
         +removeTaskFromSchedule(taskId: String): void
         +getDailyTasks(): List~Task~
@@ -100,21 +101,71 @@ classDiagram
         +String id
         +String message
         +DateTime scheduledTime
-        +String taskId
+        +Task task
         +send(): void
         +reschedule(newTime: DateTime): void
     }
+    class PetManager {
+        +Dict~String, Pet~ petIndex
+        +Dict~String, Task~ taskIndex
+        +getPetById(id: String): Pet
+        +getTaskById(id: String): Task
+        +getAllTasks(): List~Task~
+    }
     Owner "1" --> "*" Pet : manages
     Owner "1" --> "*" Constraint : has
+    Owner "1" --> "*" Schedule : owns
     Pet "1" --> "*" Task : assigned
+    Schedule "1" --> "1" Owner : belongs to
     Schedule "1" --> "*" Task : contains
     Task "1" --> "*" Notification : triggers
+    PetManager ..> Pet : indexes
+    PetManager ..> Task : indexes
 ```
 
 **b. Design changes**
 
 - Did your design change during implementation?
 - If yes, describe at least one change and why you made it.
+
+```text
+Missing Relationships
+Issue -> Problem
+Owner → Schedule -> Schedule.generate_schedule(owner) needs a relationship, but none exists. A Schedule should belong to an Owner.
+Notification → Task/Schedule -> Notification has taskId but no explicit link. The "triggers" relationship is shown backwards (should be Notification linked TO Task).
+Bidirectional Pet↔Task -> Task has petId, Pet has tasks list, but no explicit back-reference relationship shown.
+
+Bottlenecks
+Issue -> Problem
+Schedule.generate_schedule() -> Pulls ALL tasks from ALL pets every time. O(n) traversal with no caching. Scales poorly with many pets/tasks.
+Pet.tasks list	-> No pagination or filtering built-in. get_pending_tasks() still scans entire list.
+No indexing	-> All lookups by id are linear O(n) scans.
+
+Suggested Fixes
+1. Add Owner "1" --> "*" Schedule relationship
+2. Make Schedule store a reference to its owner
+3. Consider adding a TaskRepository or PetManager class to centralize lookups and add indexing
+```
+
+```text
+Done. Updates:
+reflection.md UML:
+- Added PetManager class with indexing methods
+- Schedule now has Owner reference and generateSchedule() uses it directly
+- Notification links to Task directly
+- Added Owner "1" --> "*" Schedule relationship
+- Fixed notification relationship direction
+pawpal_system.py:
+- Added PetManager with O(1) lookups by pet_id and task_id
+- Schedule.generate_schedule() now uses its owner attribute instead of parameter
+- Added Owner.schedules list and add_schedule() method
+- Added Task.notifications list and add_notification() method
+- PetManager.register_pet() auto-indexes pet's tasks
+```
+
+initially there was no relationship between the owner and the schedule which made it difficult to see which schedule is which. i allowed the coding agent to enable a relationship between the owner and the schedule so the schedule has a owner id assigned to it. 
+
+also there was a bottleneck where tasks are retrieved in O(n) time which is potentially inefficient since ALL of tasks are retrieved given there was no identifiers originally to handle this bottleneck, so i let the coding agent assign unique ids like task_id and pet_id to retrieve tasks quicker in constant time instead of retrieving ALL of them from ALL users and pets.
 
 ---
 
