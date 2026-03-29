@@ -8,28 +8,29 @@
 - What classes did you include, and what responsibilities did you assign to each?
 
 actions:
+
 1. enter a pet and input its attributes; assign the pet tasks
 2. add constraints such as availability, priority, and owner preferences
 3. schedule a plan for the pets
 
 class Pet:
-    name -> String
-    animal -> String (e.g. dog, cat, etc.)
-    tasks -> [Task]
+name -> String
+animal -> String (e.g. dog, cat, etc.)
+tasks -> [Task]
 
 class Task:
-    title -> String
-    description -> String
+title -> String
+description -> String
 
 class Constraint:
-    title -> String
-    description -> String
-    availability -> datetime
+title -> String
+description -> String
+availability -> datetime
 
 class Owner:
-    name -> String
-    pets -> [Pet]
-    constraints -> [Constraint]
+name -> String
+pets -> [Pet]
+constraints -> [Constraint]
 
 Mermaid JS diagram
 
@@ -163,7 +164,7 @@ pawpal_system.py:
 - PetManager.register_pet() auto-indexes pet's tasks
 ```
 
-initially there was no relationship between the owner and the schedule which made it difficult to see which schedule is which. i allowed the coding agent to enable a relationship between the owner and the schedule so the schedule has a owner id assigned to it. 
+initially there was no relationship between the owner and the schedule which made it difficult to see which schedule is which. i allowed the coding agent to enable a relationship between the owner and the schedule so the schedule has a owner id assigned to it.
 
 also there was a bottleneck where tasks are retrieved in O(n) time which is potentially inefficient since ALL of tasks are retrieved given there was no identifiers originally to handle this bottleneck, so i let the coding agent assign unique ids like task_id and pet_id to retrieve tasks quicker in constant time instead of retrieving ALL of them from ALL users and pets.
 
@@ -179,7 +180,25 @@ also there was a bottleneck where tasks are retrieved in O(n) time which is pote
 **b. Tradeoffs**
 
 - Describe one tradeoff your scheduler makes.
+  The generate_schedule method has repetetitive lambda patterns and multiple if/elif branches to try to sort tasks whether it's by priority, date, status, or pet name.
+
+However, the AI coding agent proposed creating a dictionary mapping to sort tasks more efficiently by searching the keyword quickly: "priority", "date", "status", or "pet name" due to its constant time lookup and we can eliminate the if/elif/else chain. we would use the lambda sorting method as the value and the filter word as the key.
+
+```python
+sort_keys = {
+        "priority": lambda t: (-t.priority, date_key(t)),
+        "date": lambda t: (date_key(t), -t.priority),
+        "pet_name": lambda t: (
+            pet_names.get(t.pet_id, "").lower(),
+            -t.priority,
+            date_key(t),
+        ),
+        "status": lambda t: (t.status.value, -t.priority, date_key(t)),
+    }
+```
+
 - Why is that tradeoff reasonable for this scenario?
+The new tradeoff the AI coding agent proposed was reasonable and better becuase the code looked cleaner and still adhered to the logic. Additionally, the sorting method by keyword was efficient with the quick, constant time lookup
 
 ---
 

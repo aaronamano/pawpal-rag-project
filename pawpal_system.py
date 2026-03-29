@@ -286,8 +286,13 @@ class Schedule:
     owner: Optional[Owner] = None
     scheduled_tasks: list[Task] = field(default_factory=list)
 
-    def generate_schedule(self, include_completed: bool = False) -> list[Task]:
-        """Generate a schedule of tasks for the owner, sorted by priority."""
+    def generate_schedule(
+        self,
+        include_completed: bool = False,
+        sort_by: str = "priority",
+        filter_status: Optional[TaskStatus] = None,
+    ) -> list[Task]:
+        """Generate a schedule of tasks for the owner, sorted by priority, date, or pet name."""
         if not self.owner:
             return []
 
@@ -297,10 +302,25 @@ class Schedule:
         if not include_completed:
             tasks = [t for t in tasks if t.status != TaskStatus.COMPLETED]
 
-        tasks.sort(
-            key=lambda t: (t.priority, t.assigned_date or datetime.min), reverse=True
-        )
-        return tasks
+        if filter_status:
+            tasks = [t for t in tasks if t.status == filter_status]
+
+        pet_names = {pet.id: pet.name for pet in self.owner.pets}
+        date_key = lambda t: t.assigned_date or datetime.min
+
+        sort_keys = {
+            "priority": lambda t: (-t.priority, date_key(t)),
+            "date": lambda t: (date_key(t), -t.priority),
+            "pet_name": lambda t: (
+                pet_names.get(t.pet_id, "").lower(),
+                -t.priority,
+                date_key(t),
+            ),
+            "status": lambda t: (t.status.value, -t.priority, date_key(t)),
+        }
+
+        key_func = sort_keys.get(sort_by, sort_keys["priority"])
+        return sorted(tasks, key=key_func)
 
     def add_task_to_schedule(self, task: Task) -> None:
         """Add a task to the schedule."""
@@ -421,13 +441,73 @@ class Scheduler:
             reverse=True,
         )
 
-    def complete_task(self, task_id: str) -> bool:
-        """Mark a task as completed by its ID."""
+    def detect_conflicts(self, pet_id: Optional[str] = None) -> list[tuple[Task, Task]]:
+        """Detect task scheduling conflicts. If pet_id is provided, check only that pet's tasks."""
+        if pet_id:
+            tasks = self.get_tasks_by_pet(pet_id)
+        else:
+            tasks = self.get_all_tasks()
+
+        pending_tasks = [
+            t for t in tasks if t.assigned_date and t.status == TaskStatus.PENDING
+        ]
+        conflicts = []
+
+        for i, task1 in enumerate(pending_tasks):
+            for task2 in pending_tasks[i + 1 :]:
+                if task1.assigned_date == task2.assigned_date:
+                    conflicts.append((task1, task2))
+
+        return conflicts
+
+    def check_conflicts_warning(self, pet_id: Optional[str] = None) -> str:
+        """Lightweight conflict detection that returns a warning message."""
+        conflicts = self.detect_conflicts(pet_id)
+
+        if not conflicts:
+            return "No scheduling conflicts detected."
+
+        warnings = ["⚠ Scheduling Conflicts Detected:"]
+        for task1, task2 in conflicts:
+            warnings.append(
+                f"  - '{task1.title}' and '{task2.title}' "
+                f"are both scheduled for {task1.assigned_date.strftime('%Y-%m-%d %H:%M')}"
+            )
+
+        return "\n".join(warnings)
+
+    def complete_task(self, task_id: str) -> Optional[Task]:
+        """Mark a task as completed and reschedule if recurring."""
         task = self.task_index.get(task_id)
-        if task:
-            task.complete()
-            return True
-        return False
+        if not task:
+            return None
+
+        task.complete()
+
+        if task.frequency in (TaskFrequency.DAILY, TaskFrequency.WEEKLY):
+            if task.assigned_date:
+                days_delta = 1 if task.frequency == TaskFrequency.DAILY else 7
+                new_due_date = task.assigned_date + timedelta(days=days_delta)
+
+                new_task = Task(
+                    id=f"{task.id}_rescheduled_{len(self.task_index)}",
+                    title=task.title,
+                    description=task.description,
+                    frequency=task.frequency,
+                    priority=task.priority,
+                    assigned_date=new_due_date,
+                    status=TaskStatus.PENDING,
+                    pet_id=task.pet_id,
+                )
+
+                pet = self.pet_index.get(task.pet_id)
+                if pet:
+                    pet.add_task(new_task)
+                    self.register_task(new_task)
+
+                return new_task
+
+        return None
 
     def remove_pet(self, pet_id: str) -> bool:
         """Remove a pet and all its tasks from the scheduler."""
