@@ -241,10 +241,13 @@ also there was a bottleneck where tasks are retrieved in O(n) time which is pote
 - What constraints does your scheduler consider (for example: time, priority, preferences)?
 - How did you decide which constraints mattered most?
 
+The constraints my scheduler considered was priority, urgency, and date.
+I decided which constraints mattered most based off personal experience whenever I have a lot of tasks to do and reflect on what tasks I need to prioritize.
+
 **b. Tradeoffs**
 
 - Describe one tradeoff your scheduler makes.
-  The generate_schedule method has repetetitive lambda patterns and multiple if/elif branches to try to sort tasks whether it's by priority, date, status, or pet name.
+The generate_schedule method has repetetitive lambda patterns and multiple if/elif branches to try to sort tasks whether it's by priority, date, status, or pet name.
 
 However, the AI coding agent proposed creating a dictionary mapping to sort tasks more efficiently by searching the keyword quickly: "priority", "date", "status", or "pet name" due to its constant time lookup and we can eliminate the if/elif/else chain. we would use the lambda sorting method as the value and the filter word as the key.
 
@@ -273,10 +276,17 @@ The new tradeoff the AI coding agent proposed was reasonable and better becuase 
 - How did you use AI tools during this project (for example: design brainstorming, debugging, refactoring)?
 - What kinds of prompts or questions were most helpful?
 
+I used AI tools to be able to design the UML diagram, implement the object classes from the diagram, create test cases, and update the UI of the app.
+The prompt that was the most helpful was to ask the AI tool to create and design tests solely for edge cases.
+
 **b. Judgment and verification**
 
 - Describe one moment where you did not accept an AI suggestion as-is.
 - How did you evaluate or verify what the AI suggested?
+
+I tried to ask AI why data doesn't persist while I refresh it, and afterwards it suggested a sqlite or local json database to ensure data persists via querying it.
+
+I decided what the AI suggested by asking myself how the outcome would turn out if we implemented x and if it is worth it as well as how much it can impact our codebase/system.
 
 ---
 
@@ -287,11 +297,18 @@ The new tradeoff the AI coding agent proposed was reasonable and better becuase 
 - What behaviors did you test?
 - Why were these tests important?
 
+I tested various behaviors where we had to sort tasks based on different filters and handle recurring tasks. I also tested behaviors where we add a task and see if the number of tasks had updated for a certain pet and ensuring that certain tasks were completed if we checked them off.
+
+These tests were important because they would help the user manage tasks more efficiently and focus on the ones they need to do.
+
 **b. Confidence**
 
 - How confident are you that your scheduler works correctly?
 - What edge cases would you test next if you had more time?
 
+I am pretty confident my scheduler works correctly since we implemented tests that the AI worked on based on the system it implemented for the UI.
+
+At the moment, I don't think there are many edge cases I would like to test next time. I would probably work on sorting tasks by pet name, accounting for an edge case where multiple pets might have the same name.
 ---
 
 ## 5. Reflection
@@ -300,10 +317,16 @@ The new tradeoff the AI coding agent proposed was reasonable and better becuase 
 
 - What part of this project are you most satisfied with?
 
+the part i am satisfied with is that the system it implemented passed test cases and directly worked with the UI
+
 **b. What you would improve**
 
 - If you had another iteration, what would you improve or redesign?
 
+i would improve handling features where users can edit the tasks and/or information of pet names they created.
+
 **c. Key takeaway**
 
 - What is one important thing you learned about designing systems or working with AI on this project?
+
+i learned that designing a system architecture is crucial and that you need to account for edge cases and seeing if the system as the whole works through testing. also breaking an system down into components to understand the entire functionality can be helpful.
