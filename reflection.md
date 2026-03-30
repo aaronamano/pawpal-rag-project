@@ -36,6 +36,20 @@ Mermaid JS diagram
 
 ```js
 classDiagram
+    class TaskStatus {
+        <<enumeration>>
+        PENDING
+        COMPLETED
+        OVERDUE
+        CANCELLED
+    }
+    class TaskFrequency {
+        <<enumeration>>
+        DAILY
+        WEEKLY
+        MONTHLY
+        ONE_TIME
+    }
     class Owner {
         +String id
         +String name
@@ -43,11 +57,20 @@ classDiagram
         +List~Pet~ pets
         +List~Constraint~ constraints
         +Dict preferences
+        +List~Schedule~ schedules
+        +DateTime createdAt
         +addPet(pet: Pet): void
-        +removePet(petId: String): void
+        +removePet(petId: String): Pet
+        +getPetById(petId: String): Pet
         +addConstraint(constraint: Constraint): void
         +getPets(): List~Pet~
+        +getAllTasks(): List~Task~
+        +getAllPendingTasks(): List~Task~
+        +getAllOverdueTasks(): List~Task~
         +updatePreferences(prefs: Dict): void
+        +addSchedule(schedule: Schedule): void
+        +getPetCount(): int
+        +getTotalTaskCount(): Dict
     }
     class Pet {
         +String id
@@ -58,24 +81,36 @@ classDiagram
         +float weight
         +List~Task~ tasks
         +Dict healthInfo
+        +String ownerId
+        +DateTime createdAt
         +addTask(task: Task): void
-        +removeTask(taskId: String): void
+        +removeTask(taskId: String): boolean
+        +getTaskById(taskId: String): Task
         +getPendingTasks(): List~Task~
+        +getCompletedTasks(): List~Task~
+        +getOverdueTasks(): List~Task~
+        +getTasksByStatus(status: TaskStatus): List~Task~
+        +getTasksDueToday(): List~Task~
         +updateHealthInfo(info: Dict): void
+        +getTaskCount(): Dict
     }
     class Task {
         +String id
         +String title
         +String description
-        +String frequency
+        +TaskFrequency frequency
         +int priority
         +DateTime assignedDate
-        +String status
+        +TaskStatus status
         +String petId
+        +List~Notification~ notifications
+        +DateTime createdAt
         +complete(): void
         +markPending(): void
         +isOverdue(): boolean
         +getDaysUntilDue(): int
+        +getOverdueDays(): int
+        +addNotification(notification: Notification): void
     }
     class Constraint {
         +String id
@@ -84,7 +119,7 @@ classDiagram
         +DateTime startTime
         +DateTime endTime
         +String ownerId
-        +isAvailable(dateTime: DateTime): boolean
+        +isAvailable(checkTime: DateTime): boolean
         +checkConflict(other: Constraint): boolean
         +getDuration(): int
     }
@@ -93,35 +128,64 @@ classDiagram
         +DateTime date
         +Owner owner
         +List~Task~ scheduledTasks
-        +generateSchedule(): List~Task~
+        +generateSchedule(includeCompleted, sortBy, filterStatus): List~Task~
         +addTaskToSchedule(task: Task): void
-        +removeTaskFromSchedule(taskId: String): void
+        +removeTaskFromSchedule(taskId: String): boolean
         +getDailyTasks(): List~Task~
+        +getPendingDailyTasks(): List~Task~
     }
     class Notification {
         +String id
         +String message
         +DateTime scheduledTime
         +Task task
+        +boolean isSent
         +send(): void
         +reschedule(newTime: DateTime): void
     }
-    class PetManager {
+    class Scheduler {
+        +Dict~String, Owner~ owners
         +Dict~String, Pet~ petIndex
         +Dict~String, Task~ taskIndex
-        +getPetById(id: String): Pet
-        +getTaskById(id: String): Task
+        +List~Schedule~ schedules
+        +registerOwner(owner: Owner): void
+        +registerPet(pet: Pet): void
+        +registerTask(task: Task): void
+        +getOwnerById(ownerId: String): Owner
+        +getPetById(petId: String): Pet
+        +getTaskById(taskId: String): Task
+        +getAllOwners(): List~Owner~
+        +getAllPets(): List~Pet~
         +getAllTasks(): List~Task~
+        +getAllPendingTasks(): List~Task~
+        +getAllOverdueTasks(): List~Task~
+        +getTasksByPet(petId: String): List~Task~
+        +getTasksByOwner(ownerId: String): List~Task~
+        +getTasksDueToday(): List~Task~
+        +getTasksDueSoon(days: int): List~Task~
+        +getTasksByPriority(minPriority: int): List~Task~
+        +detectConflicts(petId: String): List~Tuple~
+        +checkConflictsWarning(petId: String): String
+        +completeTask(taskId: String): Task
+        +removePet(petId: String): boolean
+        +removeOwner(ownerId: String): boolean
+        +generateSchedule(ownerId: String, date: DateTime): Schedule
+        +getSystemStats(): Dict
     }
     Owner "1" --> "*" Pet : manages
     Owner "1" --> "*" Constraint : has
     Owner "1" --> "*" Schedule : owns
     Pet "1" --> "*" Task : assigned
+    Pet "1" --> "1" Owner : belongs to
     Schedule "1" --> "1" Owner : belongs to
     Schedule "1" --> "*" Task : contains
+    Task "1" --> "1" Pet : belongs to
     Task "1" --> "*" Notification : triggers
-    PetManager ..> Pet : indexes
-    PetManager ..> Task : indexes
+    Notification "*" --> "1" Task : for
+    Scheduler "1" --> "*" Owner : manages
+    Scheduler "1" --> "*" Pet : indexes
+    Scheduler "1" --> "*" Task : indexes
+    Scheduler "1" --> "*" Schedule : manages
 ```
 
 **b. Design changes**
