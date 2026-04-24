@@ -1,15 +1,23 @@
 import streamlit as st
 from pawpal_system import Task, Pet, Owner, Scheduler, TaskStatus, TaskFrequency
+from data_storage import DataStorage, CRUDExtensions
 from datetime import datetime, date, time as dt_time, timedelta
 import uuid
 
 st.set_page_config(page_title="PawPal+", page_icon="🐾", layout="wide")
 
+DATA_FILE = "pawpal_data.json"
+storage = DataStorage(DATA_FILE)
+
 if "scheduler" not in st.session_state:
-    st.session_state.scheduler = Scheduler()
+    st.session_state.scheduler = storage.load_scheduler()
     st.session_state.owner = None
 
+if "all_owners" not in st.session_state:
+    st.session_state.all_owners = storage.load_all()
+
 scheduler: Scheduler = st.session_state.scheduler
+all_owners: list[Owner] = st.session_state.all_owners
 
 st.title("🐾 PawPal+ Dashboard")
 
@@ -40,12 +48,26 @@ main_col1, main_col2, main_col3 = st.columns(3)
 with main_col1:
     with st.container(border=True):
         st.markdown("#### 👤 Owner Setup")
+        if all_owners:
+            owner_options = {o.name: o for o in all_owners}
+            selected_owner_name = st.selectbox(
+                "Select Owner",
+                list(owner_options.keys()),
+                key="owner_select",
+            )
+            if st.session_state.owner != owner_options[selected_owner_name]:
+                st.session_state.owner = owner_options[selected_owner_name]
+                st.session_state.scheduler = storage.load_scheduler()
+                st.rerun()
+        else:
+            st.info("No owners yet. Create one below!")
+
         owner_name = st.text_input(
-            "Name",
-            value="Jordan",
+            "New Owner Name",
+            value="",
             key="owner_name",
             label_visibility="collapsed",
-            placeholder="Owner Name",
+            placeholder="New Owner Name",
         )
         owner_email = st.text_input(
             "Email",
@@ -55,16 +77,34 @@ with main_col1:
             placeholder="Email (optional)",
         )
 
-        if st.button("Create / Load Owner", use_container_width=True, type="primary"):
-            existing_owner = scheduler.get_owner_by_id("owner_1")
-            if existing_owner:
-                st.session_state.owner = existing_owner
-                st.success(f"✅ Loaded: {existing_owner.name}")
-            else:
-                new_owner = Owner(id="owner_1", name=owner_name, email=owner_email)
-                scheduler.register_owner(new_owner)
+        c1, c2 = st.columns(2)
+        with c1:
+            if st.button("Create Owner", use_container_width=True, type="primary"):
+                new_owner = Owner(
+                    id=f"owner_{uuid.uuid4().hex[:8]}",
+                    name=owner_name,
+                    email=owner_email,
+                )
+                CRUDExtensions.create_owner(all_owners, new_owner, storage)
+                st.session_state.scheduler = storage.load_scheduler()
+                st.session_state.all_owners = storage.load_all()
                 st.session_state.owner = new_owner
-                st.success(f"✅ Created: {new_owner.name}")
+                st.rerun()
+        with c2:
+            if all_owners and st.button(
+                "Delete Owner", use_container_width=True, type="secondary"
+            ):
+                removed = CRUDExtensions.delete_owner(
+                    all_owners, st.session_state.owner.id, storage
+                )
+                if removed:
+                    st.session_state.all_owners = storage.load_all()
+                    st.session_state.scheduler = storage.load_scheduler()
+                    if st.session_state.all_owners:
+                        st.session_state.owner = st.session_state.all_owners[0]
+                    else:
+                        st.session_state.owner = None
+                    st.rerun()
 
         if st.session_state.owner:
             st.caption(
@@ -119,8 +159,9 @@ with main_col2:
                 age=int(pet_age),
                 weight=float(pet_weight),
             )
-            owner.add_pet(new_pet)
-            scheduler.register_pet(new_pet)
+            CRUDExtensions.create_pet(all_owners, owner.id, new_pet, storage)
+            st.session_state.scheduler = storage.load_scheduler()
+            st.session_state.all_owners = storage.load_all()
             st.success(f"✅ Added: {new_pet.name}")
             st.rerun()
 
@@ -189,8 +230,11 @@ with main_col3:
                     frequency=task_frequency,
                     assigned_date=task_datetime,
                 )
-                selected_pet.add_task(new_task)
-                scheduler.register_task(new_task)
+                CRUDExtensions.create_task(
+                    all_owners, selected_pet.id, new_task, storage
+                )
+                st.session_state.scheduler = storage.load_scheduler()
+                st.session_state.all_owners = storage.load_all()
                 st.success(f"✅ Task added for {selected_pet.name}")
                 st.rerun()
 
@@ -275,12 +319,20 @@ if owner:
                                         )
                                         if checked and t.status != TaskStatus.COMPLETED:
                                             scheduler.complete_task(t.id)
+                                            storage.save_scheduler(scheduler)
+                                            st.session_state.scheduler = (
+                                                storage.load_scheduler()
+                                            )
                                             st.rerun()
                                         elif (
                                             not checked
                                             and t.status == TaskStatus.COMPLETED
                                         ):
                                             t.mark_pending()
+                                            storage.save_scheduler(scheduler)
+                                            st.session_state.scheduler = (
+                                                storage.load_scheduler()
+                                            )
                                             st.rerun()
                                     with task_cols[2]:
                                         st.caption(priority_map.get(t.priority, ""))
@@ -382,9 +434,13 @@ if owner:
                         )
                         if checked and t.status != TaskStatus.COMPLETED:
                             scheduler.complete_task(t.id)
+                            storage.save_scheduler(scheduler)
+                            st.session_state.scheduler = storage.load_scheduler()
                             st.rerun()
                         elif not checked and t.status == TaskStatus.COMPLETED:
                             t.mark_pending()
+                            storage.save_scheduler(scheduler)
+                            st.session_state.scheduler = storage.load_scheduler()
                             st.rerun()
                     with cols[1]:
                         st.caption(f"🐾 {pet.name if pet else '?'}")
@@ -477,9 +533,17 @@ if owner:
                                 )
                                 if checked and t.status != TaskStatus.COMPLETED:
                                     scheduler.complete_task(t.id)
+                                    storage.save_scheduler(scheduler)
+                                    st.session_state.scheduler = (
+                                        storage.load_scheduler()
+                                    )
                                     st.rerun()
                                 elif not checked and t.status == TaskStatus.COMPLETED:
                                     t.mark_pending()
+                                    storage.save_scheduler(scheduler)
+                                    st.session_state.scheduler = (
+                                        storage.load_scheduler()
+                                    )
                                     st.rerun()
                             with cols[2]:
                                 st.caption(
@@ -652,9 +716,17 @@ if owner:
                                         )
                                         if checked and not is_completed:
                                             scheduler.complete_task(t.id)
+                                            storage.save_scheduler(scheduler)
+                                            st.session_state.scheduler = (
+                                                storage.load_scheduler()
+                                            )
                                             st.rerun()
                                         elif not checked and is_completed:
                                             t.mark_pending()
+                                            storage.save_scheduler(scheduler)
+                                            st.session_state.scheduler = (
+                                                storage.load_scheduler()
+                                            )
                                             st.rerun()
 
 else:
