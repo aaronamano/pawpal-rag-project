@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Owner, Pet, Task, SystemStats, TaskFrequency } from "./types";
 import * as api from "./api";
 
@@ -470,24 +470,24 @@ export default function Home() {
           </div>
         ) : (
           <div className="card p-0">
-            <div className="tab-list">
-              {["Pets & Tasks", "Dashboard", "Schedule", "Calendar"].map(
-                (tab, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setActiveTab(i)}
-                    className={`tab-button ${activeTab === i ? 'active' : ''}`}
-                  >
-                    {tab}
-                  </button>
-                )
-              )}
+<div className="tab-list">
+              {["Pets & Tasks", "Dashboard", "Chat", "Calendar"].map(
+                  (tab, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setActiveTab(i)}
+                      className={`tab-button ${activeTab === i ? 'active' : ''}`}
+                    >
+                      {tab}
+                    </button>
+                  )
+                )}
             </div>
 
             <div className="p-6">
               {activeTab === 0 && <PetsTasksTab owner={selectedOwner} onToggle={handleToggleTask} />}
               {activeTab === 1 && <DashboardTab owner={selectedOwner} onToggle={handleToggleTask} />}
-              {activeTab === 2 && <ScheduleTab ownerId={selectedOwner.id} />}
+              {activeTab === 2 && <ChatTab owner={selectedOwner} />}
               {activeTab === 3 && <CalendarTab owner={selectedOwner} onToggle={handleToggleTask} />}
             </div>
           </div>
@@ -810,83 +810,113 @@ function DashboardTab({
   );
 }
 
-function ScheduleTab({ ownerId }: { ownerId: string }) {
-  const [schedule, setSchedule] = useState<any[]>([]);
-  const [sortBy, setSortBy] = useState("Priority");
+function ChatTab({ owner }: { owner: Owner }) {
+  const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
+  const [input, setInput] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const faqData = [
+    { question: "How do I add a new pet?", answer: "To add a new pet, fill out the pet details in the 'Add Pet' card on the main dashboard. You'll need to provide the pet's name, species, age, and weight. Make sure you've created an owner first!" },
+    { question: "How do I schedule a task?", answer: "Tasks can be added using the 'Add Task' card on the dashboard. Select the pet, set a priority level, choose a frequency (daily, weekly, monthly, or one-time), and optionally set a due date and time." },
+    { question: "What do the priority levels mean?", answer: "Priority 1 (Low) is for non-urgent tasks, Priority 2 (Medium) is for normal tasks, and Priority 3 (High) is for urgent tasks that should be done soon." },
+    { question: "How do I mark a task as complete?", answer: "You can mark tasks as complete by clicking the checkbox next to the task in the Pets & Tasks view or the Dashboard view. Completed tasks will be shown with a checkmark." },
+    { question: "Can I edit a pet's information?", answer: "Currently, pet information can be viewed in the Pets & Tasks tab but editing is not yet supported. You can delete a pet by removing their tasks and recreation." },
+    { question: "How does the calendar work?", answer: "The Calendar tab shows all your tasks with due dates on a monthly view. Tasks recur based on their frequency - daily tasks appear every day, weekly tasks on their assigned day, and monthly tasks on their assigned date." },
+    { question: "What happens when a task becomes overdue?", answer: "Tasks that pass their due date without being completed are automatically marked as overdue and shown in red. You can filter for overdue tasks in the Dashboard view." },
+    { question: "How do I set up recurring tasks?", answer: "When creating a task, select a frequency option: 'Daily' for every day, 'Weekly' for once a week, 'Monthly' for once a month, or 'One-time' for a single task." },
+  ];
 
   useEffect(() => {
-    api.getSchedule(ownerId).then(setSchedule);
-  }, [ownerId]);
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const findAnswer = (query: string): string | null => {
+    const lowerQuery = query.toLowerCase();
+    for (const faq of faqData) {
+      if (faq.question.toLowerCase().includes(lowerQuery.split(" ")[0]) || lowerQuery.includes(faq.question.toLowerCase().split(" ")[0])) {
+        return faq.answer;
+      }
+    }
+    for (const faq of faqData) {
+      for (const word of lowerQuery.split(" ")) {
+        if (word.length > 3 && faq.question.toLowerCase().includes(word)) {
+          return faq.answer;
+        }
+      }
+    }
+    return null;
+  };
+
+  const handleSend = async () => {
+    if (!input.trim() || isTyping) return;
+    const userMessage = input.trim();
+    setInput("");
+    setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
+    setIsTyping(true);
+
+    setTimeout(() => {
+      const answer = findAnswer(userMessage);
+      const response = answer || "I'm not sure about that specific question, but here are some things I can help with:\n\n• Adding new pets\n• Scheduling tasks\n• Understanding priority levels\n• Marking tasks complete\n• Using the calendar\n\nTry asking about one of these topics!";
+      setMessages((prev) => [...prev, { role: "assistant", content: response }]);
+      setIsTyping(false);
+    }, 800 + Math.random() * 400);
+  };
 
   return (
-    <div>
-      <div className="mb-4">
-        <label className="block text-xs font-medium mb-1" style={{ color: 'var(--foreground-subtle)' }}>
-          Sort By
-        </label>
-        <select
-          className="form-input w-32"
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value)}
-        >
-          <option value="Priority">Priority</option>
-          <option value="Date">Date</option>
-        </select>
+    <div className="chat-container">
+      <div className="chat-messages">
+        {messages.length === 0 && (
+          <div className="chat-welcome">
+            <div className="chat-welcome-icon">🐾</div>
+            <div className="chat-welcome-title">PawPal Assistant</div>
+            <div className="chat-welcome-text">Hi! I'm here to help you manage your pets and tasks. Ask me anything about:</div>
+            <div className="chatSuggestions">
+              <button className="chat-suggestion-btn" onClick={() => setInput("How do I add a new pet?")}>Adding pets</button>
+              <button className="chat-suggestion-btn" onClick={() => setInput("How do I schedule a task?")}>Scheduling tasks</button>
+              <button className="chat-suggestion-btn" onClick={() => setInput("What do priority levels mean?")}>Priority levels</button>
+              <button className="chat-suggestion-btn" onClick={() => setInput("How does the calendar work?")}>Calendar help</button>
+            </div>
+          </div>
+        )}
+        {messages.map((msg, i) => (
+          <div key={i} className={`chat-message ${msg.role}`}>
+            <div className="chat-message-avatar">{msg.role === "assistant" ? "🐾" : "👤"}</div>
+            <div className="chat-message-content">
+              <div className="chat-message-text">{msg.content}</div>
+            </div>
+          </div>
+        ))}
+        {isTyping && (
+          <div className="chat-message assistant">
+            <div className="chat-message-avatar">🐾</div>
+            <div className="chat-message-content">
+              <div className="chat-typing">
+                <span className="chat-typing-dot"></span>
+                <span className="chat-typing-dot"></span>
+                <span className="chat-typing-dot"></span>
+              </div>
+            </div>
+          </div>
+        )}
+        <div ref={messagesEndRef} />
       </div>
-
-      {schedule.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-state-icon">📅</div>
-          <div className="empty-state-title">No Tasks to Schedule</div>
-          <div className="empty-state-text">Add tasks with due dates to see them here.</div>
-        </div>
-      ) : (
-        <div className="table-container">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th style={{ width: '3rem' }}>#</th>
-                <th style={{ width: '3rem' }}>Done</th>
-                <th>Task</th>
-                <th>Pet</th>
-                <th style={{ width: '5rem' }}>Priority</th>
-                <th style={{ width: '5rem' }}>Status</th>
-                <th style={{ width: '5rem' }}>Freq</th>
-              </tr>
-            </thead>
-            <tbody>
-              {schedule.map((task, i) => (
-                <tr 
-                  key={task.id}
-                  className={task.status === 'overdue' ? 'task-row-overdue' : ''}
-                >
-                  <td style={{ color: 'var(--foreground-subtle)' }}>{i + 1}</td>
-                  <td className="checkbox-wrapper">
-                    {task.status === "completed" ? (
-                      <span style={{ color: 'var(--accent)' }}>✓</span>
-                    ) : null}
-                  </td>
-                  <td className="font-medium">{task.title}</td>
-                  <td>{task.pet_name}</td>
-                  <td>
-                    <span className={`badge badge-${task.priority === 1 ? 'low' : task.priority === 2 ? 'medium' : 'high'}`}>
-                      {task.priority === 1 ? 'Low' : task.priority === 2 ? 'Med' : 'High'}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={`badge badge-${task.status}`}>
-                      {task.status.charAt(0).toUpperCase() + task.status.slice(1)}
-                    </span>
-                  </td>
-                  <td style={{ color: 'var(--foreground-muted)' }}>
-                    {FREQUENCY_LABELS[task.frequency] || task.frequency}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <div className="chat-input-container">
+        <input
+          type="text"
+          className="chat-input"
+          placeholder="Ask a question..."
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleSend()}
+          disabled={isTyping}
+        />
+        <button className="chat-send-btn" onClick={handleSend} disabled={isTyping || !input.trim()}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
+          </svg>
+        </button>
+      </div>
     </div>
   );
 }

@@ -3,6 +3,7 @@ frontend/.next
 
 backend/tests/__pycache__
 backend/__pycache__
+backend/.pytest_cache
 backend/venv
 
 .ruff_cache/
