@@ -156,12 +156,14 @@ class Pet:
         return [task for task in self.tasks if task.status == status]
 
     def get_tasks_due_today(self) -> list[Task]:
-        """Return all tasks due today."""
+        """Return all pending tasks due today."""
         today = datetime.now().date()
         return [
             task
             for task in self.tasks
-            if task.assigned_date and task.assigned_date.date() == today
+            if task.assigned_date
+            and task.status == TaskStatus.PENDING
+            and task.assigned_date.date() == today
         ]
 
     def update_health_info(self, info: dict) -> None:
@@ -415,23 +417,37 @@ class Scheduler:
         return owner.get_all_tasks() if owner else []
 
     def get_tasks_due_today(self) -> list[Task]:
-        """Return all tasks due today across the system."""
+        """Return all pending tasks due today across the system."""
         today = datetime.now().date()
         return [
             t
             for t in self.task_index.values()
-            if t.assigned_date and t.assigned_date.date() == today
+            if t.assigned_date
+            and t.status == TaskStatus.PENDING
+            and t.assigned_date.date() == today
         ]
 
     def get_tasks_due_soon(self, days: int = 3) -> list[Task]:
-        """Return all tasks due within the specified number of days."""
+        """Return all pending tasks due within the specified number of days."""
         soon = datetime.now() + timedelta(days=days)
         return [
             t
             for t in self.task_index.values()
             if t.assigned_date
-            and TaskStatus.PENDING
+            and t.status == TaskStatus.PENDING
             and datetime.now() <= t.assigned_date <= soon
+        ]
+
+    def get_tasks_due_next_week(self) -> list[Task]:
+        """Return all pending tasks due in the next 7 days (next week)."""
+        now = datetime.now()
+        week_later = now + timedelta(days=7)
+        return [
+            t
+            for t in self.task_index.values()
+            if t.assigned_date
+            and t.status == TaskStatus.PENDING
+            and now <= t.assigned_date <= week_later
         ]
 
     def get_tasks_by_priority(self, min_priority: int = 1) -> list[Task]:

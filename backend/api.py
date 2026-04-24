@@ -254,5 +254,89 @@ def get_schedule(owner_id: str):
     ]
 
 
+@app.get("/api/tasks/next_week")
+def get_tasks_next_week():
+    reload_data()
+    tasks = scheduler.get_tasks_due_next_week()
+    return [
+        {
+            "id": t.id,
+            "title": t.title,
+            "description": t.description,
+            "priority": t.priority,
+            "assigned_date": t.assigned_date.isoformat() if t.assigned_date else None,
+            "status": t.status.value,
+            "pet_id": t.pet_id,
+            "pet_name": scheduler.get_pet_by_id(t.pet_id).name
+            if scheduler.get_pet_by_id(t.pet_id)
+            else "?",
+        }
+        for t in tasks
+    ]
+
+
+@app.get("/api/tasks/due_today")
+def get_tasks_due_today():
+    reload_data()
+    tasks = scheduler.get_tasks_due_today()
+    return [
+        {
+            "id": t.id,
+            "title": t.title,
+            "description": t.description,
+            "priority": t.priority,
+            "assigned_date": t.assigned_date.isoformat() if t.assigned_date else None,
+            "status": t.status.value,
+            "pet_id": t.pet_id,
+            "pet_name": scheduler.get_pet_by_id(t.pet_id).name
+            if scheduler.get_pet_by_id(t.pet_id)
+            else "?",
+        }
+        for t in tasks
+    ]
+
+
+@app.get("/api/tasks/due_soon")
+def get_tasks_due_soon(days: int = 3):
+    reload_data()
+    tasks = scheduler.get_tasks_due_soon(days)
+    return [
+        {
+            "id": t.id,
+            "title": t.title,
+            "description": t.description,
+            "priority": t.priority,
+            "assigned_date": t.assigned_date.isoformat() if t.assigned_date else None,
+            "status": t.status.value,
+            "pet_id": t.pet_id,
+            "pet_name": scheduler.get_pet_by_id(t.pet_id).name
+            if scheduler.get_pet_by_id(t.pet_id)
+            else "?",
+        }
+        for t in tasks
+    ]
+
+
+@app.get("/api/tasks/overdue")
+def get_overdue_tasks():
+    reload_data()
+    tasks = scheduler.get_all_overdue_tasks()
+    return [
+        {
+            "id": t.id,
+            "title": t.title,
+            "description": t.description,
+            "priority": t.priority,
+            "assigned_date": t.assigned_date.isoformat() if t.assigned_date else None,
+            "status": t.status.value,
+            "pet_id": t.pet_id,
+            "pet_name": scheduler.get_pet_by_id(t.pet_id).name
+            if scheduler.get_pet_by_id(t.pet_id)
+            else "?",
+        }
+        for t in tasks
+    ]
+
+
 if __name__ == "__main__":
     uvicorn.run(app, host="localhost", port=8000)

@@ -94,3 +94,23 @@ export async function getSchedule(ownerId: string) {
   const res = await fetch(`${API_BASE}/api/schedule/${ownerId}`);
   return res.json();
 }
+
+export async function getTasksDueToday(): Promise<Task[]> {
+  const res = await fetch(`${API_BASE}/api/tasks/due_today`);
+  return res.json();
+}
+
+export async function getTasksDueSoon(days: number = 3): Promise<Task[]> {
+  const res = await fetch(`${API_BASE}/api/tasks/due_soon?days=${days}`);
+  return res.json();
+}
+
+export async function getTasksNextWeek(): Promise<Task[]> {
+  const res = await fetch(`${API_BASE}/api/tasks/next_week`);
+  return res.json();
+}
+
+export async function getOverdueTasks(): Promise<Task[]> {
+  const res = await fetch(`${API_BASE}/api/tasks/overdue`);
+  return res.json();
+}

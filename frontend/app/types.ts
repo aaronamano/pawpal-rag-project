@@ -11,6 +11,7 @@ export interface Task {
   status: TaskStatus;
   pet_id: string;
   assigned_to: string | null;
+  pet_name?: string;
 }
 
 export interface Pet {

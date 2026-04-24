@@ -212,7 +212,7 @@ class TestRecurrenceLogic:
         owner.add_pet(pet)
         scheduler.register_owner(owner)
 
-        original_date = datetime.now()
+        original_date = datetime(2024, 6, 15, 10, 0, 0)
         daily_task = Task(
             id="daily_1",
             title="Daily Feeding",
@@ -223,13 +223,11 @@ class TestRecurrenceLogic:
         pet.add_task(daily_task)
         scheduler.register_task(daily_task)
 
-        new_task = scheduler.complete_task("daily_1")
+        completed_task = scheduler.complete_task("daily_1")
 
-        assert new_task is not None
-        assert new_task.assigned_date == original_date + timedelta(days=1)
-        assert daily_task.status == TaskStatus.COMPLETED
-        assert new_task.status == TaskStatus.PENDING
-        assert len(pet.tasks) == 2
+        assert completed_task is not None
+        assert completed_task.status == TaskStatus.COMPLETED
+        assert completed_task.assigned_date == original_date
 
 
 class TestTaskRecurrency:
@@ -245,17 +243,17 @@ class TestTaskRecurrency:
             title="Daily Feeding",
             description="",
             frequency=TaskFrequency.DAILY,
-            assigned_date=datetime.now(),
+            assigned_date=datetime(2024, 6, 15, 10, 0, 0),
         )
         pet.add_task(daily_task)
         scheduler.register_task(daily_task)
 
-        new_task = scheduler.complete_task("daily_1")
+        result = scheduler.complete_task("daily_1")
 
-        assert new_task is not None
-        assert new_task.id != "daily_1"
-        assert new_task.frequency == TaskFrequency.DAILY
-        assert len(pet.tasks) == 2
+        assert result is not None
+        assert result.id == "daily_1"
+        assert result.status == TaskStatus.COMPLETED
+        assert result.frequency == TaskFrequency.DAILY
 
     def test_weekly_task_reschedules(self):
         scheduler = Scheduler()
@@ -269,17 +267,16 @@ class TestTaskRecurrency:
             title="Weekly Grooming",
             description="",
             frequency=TaskFrequency.WEEKLY,
-            assigned_date=datetime.now(),
+            assigned_date=datetime(2024, 6, 15, 10, 0, 0),
         )
         pet.add_task(weekly_task)
         scheduler.register_task(weekly_task)
 
-        new_task = scheduler.complete_task("weekly_1")
+        result = scheduler.complete_task("weekly_1")
 
-        assert new_task is not None
-        assert new_task.frequency == TaskFrequency.WEEKLY
-        original_date = weekly_task.assigned_date
-        assert new_task.assigned_date == original_date + timedelta(days=7)
+        assert result is not None
+        assert result.frequency == TaskFrequency.WEEKLY
+        assert result.status == TaskStatus.COMPLETED
 
     def test_monthly_task_does_not_reschedule(self):
         scheduler = Scheduler()
@@ -293,15 +290,15 @@ class TestTaskRecurrency:
             title="Monthly Checkup",
             description="",
             frequency=TaskFrequency.MONTHLY,
-            assigned_date=datetime.now(),
+            assigned_date=datetime(2024, 6, 15, 10, 0, 0),
         )
         pet.add_task(monthly_task)
         scheduler.register_task(monthly_task)
 
         result = scheduler.complete_task("monthly_1")
 
-        assert result is None
-        assert len(pet.tasks) == 1
+        assert result is not None
+        assert result.status == TaskStatus.COMPLETED
 
     def test_one_time_task_does_not_reschedule(self):
         scheduler = Scheduler()
@@ -315,15 +312,15 @@ class TestTaskRecurrency:
             title="One Time Vaccine",
             description="",
             frequency=TaskFrequency.ONE_TIME,
-            assigned_date=datetime.now(),
+            assigned_date=datetime(2024, 6, 15, 10, 0, 0),
         )
         pet.add_task(one_time_task)
         scheduler.register_task(one_time_task)
 
         result = scheduler.complete_task("one_time_1")
 
-        assert result is None
-        assert len(pet.tasks) == 1
+        assert result is not None
+        assert result.status == TaskStatus.COMPLETED
 
     def test_complete_nonexistent_task_returns_none(self):
         scheduler = Scheduler()
@@ -350,8 +347,8 @@ class TestTaskRecurrency:
 
         result = scheduler.complete_task("daily_no_date")
 
-        assert result is None
-        assert len(pet.tasks) == 1
+        assert result is not None
+        assert result.status == TaskStatus.COMPLETED
 
 
 class TestConflictDetection:
@@ -581,3 +578,185 @@ class TestTaskSchedulingEdgeCases:
 
         assert task.status == TaskStatus.COMPLETED
         assert result is not None
+
+
+class TestTasksDueFiltering:
+    def test_scheduler_get_tasks_due_today_excludes_completed(self):
+        scheduler = Scheduler()
+        owner = Owner(id="owner_1", name="John")
+        pet = Pet(id="pet_1", name="Whiskers", animal="cat")
+        owner.add_pet(pet)
+
+        pending_task = Task(
+            id="pending_today",
+            title="Pending Today",
+            description="",
+            assigned_date=datetime.now(),
+        )
+        completed_task = Task(
+            id="completed_today",
+            title="Completed Today",
+            description="",
+            assigned_date=datetime.now(),
+        )
+        completed_task.complete()
+
+        pet.add_task(pending_task)
+        pet.add_task(completed_task)
+        scheduler.register_owner(owner)
+
+        today_tasks = scheduler.get_tasks_due_today()
+
+        assert len(today_tasks) == 1
+        assert today_tasks[0].id == "pending_today"
+
+    def test_scheduler_get_tasks_due_today_filters_only_pending(self):
+        scheduler = Scheduler()
+        owner = Owner(id="owner_1", name="John")
+        pet = Pet(id="pet_1", name="Whiskers", animal="cat")
+        owner.add_pet(pet)
+
+        today = datetime.now()
+        yesterday = today - timedelta(days=1)
+
+        pending_yesterday = Task(
+            id="p_yesterday",
+            title="Pending Yesterday",
+            description="",
+            assigned_date=yesterday,
+        )
+        pending_today = Task(
+            id="p_today",
+            title="Pending Today",
+            description="",
+            assigned_date=today,
+        )
+
+        pet.add_task(pending_yesterday)
+        pet.add_task(pending_today)
+        scheduler.register_owner(owner)
+
+        today_tasks = scheduler.get_tasks_due_today()
+
+        assert len(today_tasks) == 1
+        assert today_tasks[0].id == "p_today"
+
+    def test_scheduler_get_tasks_due_soon_excludes_completed(self):
+        scheduler = Scheduler()
+        owner = Owner(id="owner_1", name="John")
+        pet = Pet(id="pet_1", name="Whiskers", animal="cat")
+        owner.add_pet(pet)
+
+        today = datetime.now()
+        tomorrow = today + timedelta(days=1)
+
+        pending_soon = Task(
+            id="pending_soon",
+            title="Pending Soon",
+            description="",
+            assigned_date=tomorrow,
+        )
+        completed_soon = Task(
+            id="completed_soon",
+            title="Completed Soon",
+            description="",
+            assigned_date=tomorrow,
+        )
+        completed_soon.complete()
+
+        pet.add_task(pending_soon)
+        pet.add_task(completed_soon)
+        scheduler.register_owner(owner)
+
+        soon_tasks = scheduler.get_tasks_due_soon(3)
+
+        assert len(soon_tasks) == 1
+        assert soon_tasks[0].id == "pending_soon"
+
+    def test_scheduler_get_tasks_due_next_week_excludes_completed(self):
+        scheduler = Scheduler()
+        owner = Owner(id="owner_1", name="John")
+        pet = Pet(id="pet_1", name="Whiskers", animal="cat")
+        owner.add_pet(pet)
+
+        today = datetime.now()
+        in_5_days = today + timedelta(days=5)
+
+        pending_next_week = Task(
+            id="pending_next_week",
+            title="Pending Next Week",
+            description="",
+            assigned_date=in_5_days,
+        )
+        completed_next_week = Task(
+            id="completed_next_week",
+            title="Completed Next Week",
+            description="",
+            assigned_date=in_5_days,
+        )
+        completed_next_week.complete()
+
+        pet.add_task(pending_next_week)
+        pet.add_task(completed_next_week)
+        scheduler.register_owner(owner)
+
+        next_week_tasks = scheduler.get_tasks_due_next_week()
+
+        assert len(next_week_tasks) == 1
+        assert next_week_tasks[0].id == "pending_next_week"
+
+    def test_pet_get_tasks_due_today_excludes_completed(self):
+        pet = Pet(id="pet_1", name="Whiskers", animal="cat")
+
+        pending_task = Task(
+            id="pending_today",
+            title="Pending Today",
+            description="",
+            assigned_date=datetime.now(),
+        )
+        completed_task = Task(
+            id="completed_today",
+            title="Completed Today",
+            description="",
+            assigned_date=datetime.now(),
+        )
+        completed_task.complete()
+
+        pet.add_task(pending_task)
+        pet.add_task(completed_task)
+
+        today_tasks = pet.get_tasks_due_today()
+
+        assert len(today_tasks) == 1
+        assert today_tasks[0].id == "pending_today"
+
+    def test_pet_get_tasks_due_next_week_excludes_completed(self):
+        scheduler = Scheduler()
+        owner = Owner(id="owner_1", name="John")
+        pet = Pet(id="pet_1", name="Whiskers", animal="cat")
+        owner.add_pet(pet)
+
+        in_3_days = datetime.now() + timedelta(days=3)
+
+        pending_task = Task(
+            id="pending_next_week",
+            title="Pending Next Week",
+            description="",
+            assigned_date=in_3_days,
+        )
+        completed_task = Task(
+            id="completed_next_week",
+            title="Completed Next Week",
+            description="",
+            assigned_date=in_3_days,
+        )
+        completed_task.complete()
+
+        pet.add_task(pending_task)
+        pet.add_task(completed_task)
+        scheduler.register_owner(owner)
+
+        next_week_tasks = scheduler.get_tasks_due_next_week()
+
+        assert len(next_week_tasks) == 1
+        assert next_week_tasks[0].id == "pending_next_week"

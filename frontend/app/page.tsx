@@ -831,6 +831,39 @@ function ChatTab({ owner }: { owner: Owner }) {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  const formatTaskList = (tasks: Task[], title: string): string => {
+    if (tasks.length === 0) return `You have no ${title}.`;
+    const lines = [`Your ${title}:`, ""];
+    for (const task of tasks) {
+      const date = task.assigned_date ? new Date(task.assigned_date).toLocaleDateString() : "No due date";
+      lines.push(`• ${task.title} (${task.pet_name || "Unknown pet"}) - Due: ${date}`);
+    }
+    return lines.join("\n");
+  };
+
+  const handleTaskQuery = async (query: string): Promise<string | null> => {
+    const lower = query.toLowerCase();
+    
+    if (lower.includes("today") && (lower.includes("due") || lower.includes("task"))) {
+      const tasks = await api.getTasksDueToday();
+      return formatTaskList(tasks, "tasks due today");
+    }
+    if (lower.includes("next week") && (lower.includes("due") || lower.includes("task"))) {
+      const tasks = await api.getTasksNextWeek();
+      return formatTaskList(tasks, "tasks due next week");
+    }
+    if ((lower.includes("soon") || lower.includes("upcoming")) && (lower.includes("due") || lower.includes("task"))) {
+      const tasks = await api.getTasksDueSoon(3);
+      return formatTaskList(tasks, "tasks due soon (next 3 days)");
+    }
+    if (lower.includes("overdue")) {
+      const tasks = await api.getOverdueTasks();
+      return formatTaskList(tasks, "overdue tasks");
+    }
+    
+    return null;
+  };
+
   const findAnswer = (query: string): string | null => {
     const lowerQuery = query.toLowerCase();
     for (const faq of faqData) {
@@ -855,9 +888,18 @@ function ChatTab({ owner }: { owner: Owner }) {
     setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
     setIsTyping(true);
 
-    setTimeout(() => {
+    setTimeout(async () => {
+      let response: string;
       const answer = findAnswer(userMessage);
-      const response = answer || "I'm not sure about that specific question, but here are some things I can help with:\n\n• Adding new pets\n• Scheduling tasks\n• Understanding priority levels\n• Marking tasks complete\n• Using the calendar\n\nTry asking about one of these topics!";
+      const taskQueryResult = await handleTaskQuery(userMessage);
+      
+      if (taskQueryResult) {
+        response = taskQueryResult;
+      } else if (answer) {
+        response = answer;
+      } else {
+        response = "I'm not sure about that specific question, but here are some things I can help with:\n\n• Adding new pets\n• Scheduling tasks\n• Understanding priority levels\n• Marking tasks complete\n• Using the calendar\n\nYou can also ask me about:\n• Tasks due today\n• Tasks due next week\n• Tasks due soon\n• Overdue tasks\n\nTry asking about one of these topics!";
+      }
       setMessages((prev) => [...prev, { role: "assistant", content: response }]);
       setIsTyping(false);
     }, 800 + Math.random() * 400);
@@ -876,6 +918,9 @@ function ChatTab({ owner }: { owner: Owner }) {
               <button className="chat-suggestion-btn" onClick={() => setInput("How do I schedule a task?")}>Scheduling tasks</button>
               <button className="chat-suggestion-btn" onClick={() => setInput("What do priority levels mean?")}>Priority levels</button>
               <button className="chat-suggestion-btn" onClick={() => setInput("How does the calendar work?")}>Calendar help</button>
+              <button className="chat-suggestion-btn" onClick={() => setInput("tasks due today")}>Tasks due today</button>
+              <button className="chat-suggestion-btn" onClick={() => setInput("tasks due next week")}>Tasks due next week</button>
+              <button className="chat-suggestion-btn" onClick={() => setInput("overdue tasks")}>Overdue tasks</button>
             </div>
           </div>
         )}
