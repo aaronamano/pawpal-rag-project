@@ -478,37 +478,22 @@ class Scheduler:
         return "\n".join(warnings)
 
     def complete_task(self, task_id: str) -> Optional[Task]:
-        """Mark a task as completed and reschedule if recurring."""
+        """Mark a task as completed."""
         task = self.task_index.get(task_id)
         if not task:
             return None
 
         task.complete()
+        return task
 
-        if task.frequency in (TaskFrequency.DAILY, TaskFrequency.WEEKLY):
-            if task.assigned_date:
-                days_delta = 1 if task.frequency == TaskFrequency.DAILY else 7
-                new_due_date = task.assigned_date + timedelta(days=days_delta)
+    def mark_task_pending(self, task_id: str) -> Optional[Task]:
+        """Mark a task as pending."""
+        task = self.task_index.get(task_id)
+        if not task:
+            return None
 
-                new_task = Task(
-                    id=f"{task.id}_rescheduled_{len(self.task_index)}",
-                    title=task.title,
-                    description=task.description,
-                    frequency=task.frequency,
-                    priority=task.priority,
-                    assigned_date=new_due_date,
-                    status=TaskStatus.PENDING,
-                    pet_id=task.pet_id,
-                )
-
-                pet = self.pet_index.get(task.pet_id)
-                if pet:
-                    pet.add_task(new_task)
-                    self.register_task(new_task)
-
-                return new_task
-
-        return None
+        task.mark_pending()
+        return task
 
     def remove_pet(self, pet_id: str) -> bool:
         """Remove a pet and all its tasks from the scheduler."""

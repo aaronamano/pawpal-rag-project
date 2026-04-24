@@ -129,9 +129,9 @@ export default function Home() {
 
   async function handleToggleTask(taskId: string, completed: boolean) {
     if (completed) {
-      await api.markTaskPending(taskId);
-    } else {
       await api.completeTask(taskId);
+    } else {
+      await api.markTaskPending(taskId);
     }
     loadData();
   }
@@ -605,6 +605,14 @@ function TaskItem({
   task: Task;
   onToggle: (taskId: string, completed: boolean) => void;
 }) {
+  const formatDateTime = (dateStr: string | null) => {
+    if (!dateStr) return null;
+    const date = new Date(dateStr);
+    const dateStr2 = date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const timeStr = date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    return `${dateStr2} at ${timeStr}`;
+  };
+
   return (
     <div 
       className={`flex items-center gap-3 p-2 rounded ${task.status === 'completed' ? 'task-row-completed' : ''} ${task.status === 'overdue' ? 'task-row-overdue' : ''}`}
@@ -620,6 +628,11 @@ function TaskItem({
       </div>
       <div className="flex-1 min-w-0">
         <div className="task-title text-sm font-medium truncate">{task.title}</div>
+        {task.assigned_date && (
+          <div className="task-datetime text-xs mt-0.5" style={{ color: 'var(--foreground-muted)' }}>
+            {formatDateTime(task.assigned_date)}
+          </div>
+        )}
         <div className="flex items-center gap-2 mt-1">
           <span className={`badge badge-${task.priority === 1 ? 'low' : task.priority === 2 ? 'medium' : 'high'}`}>
             {task.priority === 1 ? 'Low' : task.priority === 2 ? 'Medium' : 'High'}
@@ -739,14 +752,21 @@ function DashboardTab({
               <th style={{ width: '3rem' }}>Done</th>
               <th>Pet</th>
               <th>Task</th>
+              <th style={{ width: '7rem' }}>Date & Time</th>
               <th style={{ width: '6rem' }}>Priority</th>
               <th style={{ width: '6rem' }}>Status</th>
-              <th style={{ width: '6rem' }}>Frequency</th>
             </tr>
           </thead>
           <tbody>
             {displayTasks.map((task) => {
               const pet = owner.pets.find((p) => p.id === task.pet_id);
+              const formatDateTime = (dateStr: string | null) => {
+                if (!dateStr) return "—";
+                const date = new Date(dateStr);
+                const dateStr2 = date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                const timeStr = date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+                return `${dateStr2}, ${timeStr}`;
+              };
               return (
                 <tr 
                   key={task.id} 
@@ -767,6 +787,9 @@ function DashboardTab({
                     </div>
                   </td>
                   <td className="task-title font-medium">{task.title}</td>
+                  <td className="task-datetime" style={{ color: 'var(--foreground-muted)', fontSize: '0.8125rem' }}>
+                    {formatDateTime(task.assigned_date)}
+                  </td>
                   <td>
                     <span className={`badge badge-${task.priority === 1 ? 'low' : task.priority === 2 ? 'medium' : 'high'}`}>
                       {task.priority === 1 ? 'Low' : task.priority === 2 ? 'Medium' : 'High'}
@@ -776,9 +799,6 @@ function DashboardTab({
                     <span className={`badge badge-${task.status}`}>
                       {task.status.charAt(0).toUpperCase() + task.status.slice(1)}
                     </span>
-                  </td>
-                  <td style={{ color: 'var(--foreground-muted)' }}>
-                    {FREQUENCY_LABELS[task.frequency] || task.frequency}
                   </td>
                 </tr>
               );
@@ -879,10 +899,13 @@ function CalendarTab({
   onToggle: (taskId: string, completed: boolean) => void;
 }) {
   const allTasks = owner.pets.flatMap((p) => p.tasks);
-  const tasksWithDates = allTasks.filter((t) => t.assigned_date);
+  const tasksWithDates = allTasks.filter((t) => t.assigned_date && t.status !== "completed");
   const [selectedMonth, setSelectedMonth] = useState(
     new Date().toISOString().slice(0, 7)
   );
+  const [showTitles, setShowTitles] = useState(true);
+  const [expandedDay, setExpandedDay] = useState<number | null>(null);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   if (tasksWithDates.length === 0) {
     return (
@@ -968,23 +991,58 @@ function CalendarTab({
     );
   };
 
+  const truncateTitle = (title: string, maxLength: number) => {
+    if (title.length <= maxLength) return title;
+    return title.slice(0, maxLength - 1) + "…";
+  };
+
   return (
-    <div>
-      <div className="flex items-center gap-4 mb-6">
-        <div>
-          <label className="block text-xs font-medium mb-1" style={{ color: 'var(--foreground-subtle)' }}>
-            Month
-          </label>
-          <input
-            type="month"
-            className="form-input w-44"
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-          />
+    <div className="calendar-container">
+      <div className="calendar-controls">
+        <div className="calendar-nav">
+          <button
+            className="calendar-nav-btn"
+            onClick={() => {
+              const prev = new Date(year, month - 2, 1);
+              setSelectedMonth(`${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, "0")}`);
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M10 12l-4-4 4-4" stroke="currentColor" strokeWidth="2" fill="none" />
+            </svg>
+          </button>
+          <h3 className="calendar-month-title">{monthName}</h3>
+          <button
+            className="calendar-nav-btn"
+            onClick={() => {
+              const next = new Date(year, month, 1);
+              setSelectedMonth(`${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}`);
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M6 12l4-4-4-4" stroke="currentColor" strokeWidth="2" fill="none" />
+            </svg>
+          </button>
         </div>
-        <h3 className="text-xl font-semibold" style={{ fontFamily: 'var(--font-outfit)' }}>
-          {monthName}
-        </h3>
+        
+        <div className="calendar-toggle-group">
+          <button
+            className={`calendar-toggle-btn ${showTitles ? 'active' : ''}`}
+            onClick={() => setShowTitles(!showTitles)}
+          >
+            <span className="calendar-toggle-icon">{showTitles ? '◉' : '○'}</span>
+            <span>Show Titles</span>
+          </button>
+          <button
+            className="calendar-toggle-btn today-btn"
+            onClick={() => {
+              const today = new Date();
+              setSelectedMonth(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`);
+            }}
+          >
+            Today
+          </button>
+        </div>
       </div>
 
       <div className="calendar-grid">
@@ -994,44 +1052,162 @@ function CalendarTab({
           </div>
         ))}
         
-        {weeks.flat().map((day, idx) => (
-          <div
-            key={idx}
-            className={`calendar-day ${day === null ? 'other-month' : ''} ${day && isToday(day) ? 'today' : ''}`}
-          >
-            {day && (
-              <>
-                <div className="calendar-day-number">{day}</div>
-                <div className="calendar-task-count">
-                  {getTasksForDay(day).slice(0, 3).map((task) => (
-                    <span 
-                      key={task.id}
-                      className={`calendar-task-badge badge-${task.status}`}
-                      style={{
-                        background: task.status === 'completed' ? 'var(--accent-light)' : 
-                                   task.status === 'overdue' ? 'var(--danger-light)' : 
-                                   'var(--warning-light)',
-                        color: task.status === 'completed' ? 'var(--accent)' : 
-                               task.status === 'overdue' ? 'var(--danger)' : 
-                               'var(--warning)',
-                      }}
-                      title={`${task.title} (${FREQUENCY_LABELS[task.frequency] || task.frequency})`}
-                    >
-                      {task.status === 'completed' ? '✓' : task.status === 'overdue' ? '!' : '•'}
-                      <span className="ml-1 text-xs">{task.frequency === 'daily' ? 'D' : task.frequency === 'weekly' ? 'W' : task.frequency === 'monthly' ? 'M' : ''}</span>
-                    </span>
-                  ))}
-                  {getTasksForDay(day).length > 3 && (
-                    <span className="calendar-task-badge" style={{ background: 'var(--background-muted)' }}>
-                      +{getTasksForDay(day).length - 3}
-                    </span>
+        {weeks.flat().map((day, idx) => {
+          const dayTasks = day ? getTasksForDay(day) : [];
+          const isExpanded = expandedDay === day;
+          
+          return (
+            <div
+              key={idx}
+              className={`calendar-day ${day === null ? 'other-month' : ''} ${day && isToday(day) ? 'today' : ''} ${dayTasks.length > 0 ? 'has-tasks' : ''}`}
+              onClick={() => {
+                if (day && dayTasks.length > 0) {
+                  setExpandedDay(isExpanded ? null : day);
+                }
+              }}
+            >
+              {day && (
+                <>
+                  <div className="calendar-day-header-row">
+                    <span className={`calendar-day-number ${isToday(day) ? 'today-number' : ''}`}>{day}</span>
+                    {dayTasks.length > 0 && (
+                      <span className="calendar-task-count-badge">{dayTasks.length}</span>
+                    )}
+                  </div>
+                  
+                  {showTitles && dayTasks.length > 0 && (
+                    <div className="calendar-task-list">
+                      {dayTasks.slice(0, isExpanded ? undefined : 2).map((task) => {
+                        const formatTime = (dateStr: string | null) => {
+                          if (!dateStr) return '';
+                          const date = new Date(dateStr);
+                          return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+                        };
+                        const pet = owner.pets.find((p) => p.id === task.pet_id);
+                        return (
+                          <button
+                            key={task.id}
+                            className={`calendar-task-item task-${task.status}`}
+                            onClick={() => setSelectedTask(task)}
+                          >
+                            <span className="calendar-task-pet">
+                              {pet?.name || 'Unknown'}
+                            </span>
+                            <span className={`calendar-task-title ${task.status === 'completed' ? 'completed' : ''}`}>
+                              {truncateTitle(task.title, 14)}
+                            </span>
+                            {task.assigned_date && (
+                              <span className="calendar-task-time">
+                                {formatTime(task.assigned_date)}
+                              </span>
+                            )}
+                            {task.priority === 3 && task.status !== 'completed' && (
+                              <span className="calendar-priority-dot" title="High Priority" />
+                            )}
+                          </button>
+                        );
+                      })}
+                      
+                      {dayTasks.length > 2 && !isExpanded && (
+                        <button 
+                          className="calendar-expand-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setExpandedDay(day);
+                          }}
+                        >
+                          +{dayTasks.length - 2} more
+                        </button>
+                      )}
+                      
+                      {isExpanded && dayTasks.length > 2 && (
+                        <button 
+                          className="calendar-expand-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setExpandedDay(null);
+                          }}
+                        >
+                          Show less
+                        </button>
+                      )}
+                    </div>
                   )}
-                </div>
-              </>
-            )}
-          </div>
-        ))}
+                </>
+              )}
+            </div>
+          );
+        })}
       </div>
+
+      {selectedTask && (
+        <div className="calendar-modal-overlay" onClick={() => setSelectedTask(null)}>
+          <div className="calendar-modal" onClick={(e) => e.stopPropagation()}>
+            <button className="calendar-modal-close" onClick={() => setSelectedTask(null)}>×</button>
+            <div className="calendar-modal-content">
+              <div className="calendar-modal-header">
+                <span className={`calendar-modal-priority badge-${selectedTask.priority === 1 ? 'low' : selectedTask.priority === 2 ? 'medium' : 'high'}`}>
+                  {selectedTask.priority === 1 ? 'Low' : selectedTask.priority === 2 ? 'Medium' : 'High'} Priority
+                </span>
+                <span className={`calendar-modal-status badge-${selectedTask.status}`}>
+                  {selectedTask.status.charAt(0).toUpperCase() + selectedTask.status.slice(1)}
+                </span>
+              </div>
+              <h3 className="calendar-modal-title">{selectedTask.title}</h3>
+              {selectedTask.description && (
+                <p className="calendar-modal-description">{selectedTask.description}</p>
+              )}
+              <div className="calendar-modal-details">
+                <div className="calendar-modal-detail">
+                  <span className="calendar-modal-label">Pet</span>
+                  <span className="calendar-modal-value">
+                    {owner.pets.find((p) => p.id === selectedTask.pet_id)?.name || 'Unknown'}
+                  </span>
+                </div>
+                <div className="calendar-modal-detail">
+                  <span className="calendar-modal-label">Frequency</span>
+                  <span className="calendar-modal-value">{FREQUENCY_LABELS[selectedTask.frequency] || selectedTask.frequency}</span>
+                </div>
+                {selectedTask.assigned_date && (
+                  <div className="calendar-modal-detail">
+                    <span className="calendar-modal-label">Due Date</span>
+                    <span className="calendar-modal-value">
+                      {new Date(selectedTask.assigned_date).toLocaleDateString("en-US", { 
+                        weekday: "long", 
+                        month: "long", 
+                        day: "numeric", 
+                        year: "numeric" 
+                      })}
+                    </span>
+                  </div>
+                )}
+                {selectedTask.assigned_date && (
+                  <div className="calendar-modal-detail">
+                    <span className="calendar-modal-label">Time</span>
+                    <span className="calendar-modal-value">
+                      {new Date(selectedTask.assigned_date).toLocaleTimeString("en-US", { 
+                        hour: "numeric", 
+                        minute: "2-digit" 
+                      })}
+                    </span>
+                  </div>
+                )}
+              </div>
+              <div className="calendar-modal-actions">
+                <button 
+                  className="btn-primary flex-1"
+                  onClick={() => {
+                    onToggle(selectedTask.id, selectedTask.status !== "completed");
+                    setSelectedTask(null);
+                  }}
+                >
+                  {selectedTask.status === 'completed' ? 'Mark Incomplete' : 'Mark Complete'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
