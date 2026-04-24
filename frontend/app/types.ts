@@ -10,6 +10,7 @@ export interface Task {
   assigned_date: string | null;
   status: TaskStatus;
   pet_id: string;
+  assigned_to: string | null;
 }
 
 export interface Pet {

@@ -46,6 +46,7 @@ class TaskCreate(BaseModel):
     frequency: str = "one_time"
     assigned_date: Optional[str] = None
     pet_id: str
+    assigned_to: Optional[str] = None
 
 
 class PetCreate(BaseModel):
@@ -187,6 +188,7 @@ def create_task(data: TaskCreate):
         priority=data.priority,
         frequency=TaskFrequency(data.frequency),
         assigned_date=task_datetime,
+        assigned_to=data.assigned_to,
     )
     CRUDExtensions.create_task(owners, data.pet_id, new_task, storage)
     reload_data()

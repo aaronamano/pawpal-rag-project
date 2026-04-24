@@ -57,7 +57,8 @@ export async function createTask(
   priority: number,
   frequency: string,
   assignedDate: string | null,
-  petId: string
+  petId: string,
+  assignedTo: string | null = null
 ) {
   const res = await fetch(`${API_BASE}/api/tasks`, {
     method: "POST",
@@ -69,6 +70,7 @@ export async function createTask(
       frequency,
       assigned_date: assignedDate,
       pet_id: petId,
+      assigned_to: assignedTo,
     }),
   });
   return res.json();

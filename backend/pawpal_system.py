@@ -28,6 +28,7 @@ class Task:
     assigned_date: Optional[datetime] = None
     status: TaskStatus = TaskStatus.PENDING
     pet_id: str = ""
+    assigned_to: Optional[str] = None
     notifications: list["Notification"] = field(default_factory=list)
     created_at: datetime = field(default_factory=datetime.now)
 
