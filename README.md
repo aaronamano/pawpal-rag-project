@@ -39,11 +39,20 @@ Your final app should:
 ## Getting started
 
 ### Setup
-
+Frontend
 ```bash
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
+cd frontend
+pnpm install
+pnpm run dev
+```
+
+Backend
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
+uvicorn api:app --reload --port 8000
 ```
 
 ### Suggested workflow

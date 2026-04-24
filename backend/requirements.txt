@@ -1,0 +1,5 @@
+streamlit
+pytest
+pydantic
+fastapi
+uvicorn
