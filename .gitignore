@@ -1,6 +1,7 @@
 __pycache__/
 .venv/
 .venv_new/
+venv/
 .pytest_cache/
 .DS_Store
 tests/__pycache__

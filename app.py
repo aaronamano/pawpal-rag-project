@@ -1,6 +1,6 @@
 import streamlit as st
 from pawpal_system import Task, Pet, Owner, Scheduler, TaskStatus, TaskFrequency
-from datetime import datetime
+from datetime import datetime, date, time as dt_time, timedelta
 import uuid
 
 st.set_page_config(page_title="PawPal+", page_icon="🐾", layout="wide")
@@ -164,7 +164,22 @@ with main_col3:
                 max_chars=200,
             )
 
+            c_date, c_time = st.columns(2)
+            with c_date:
+                task_date = st.date_input(
+                    "Due Date",
+                    value=date.today(),
+                    key="task_date_input",
+                )
+            with c_time:
+                task_time = st.time_input(
+                    "Due Time",
+                    value=dt_time(9, 0),
+                    key="task_time_input",
+                )
+
             if st.button("Add Task", use_container_width=True, type="primary"):
+                task_datetime = datetime.combine(task_date, task_time)
                 task_id = f"task_{uuid.uuid4().hex[:8]}"
                 new_task = Task(
                     id=task_id,
@@ -172,7 +187,7 @@ with main_col3:
                     description=task_desc,
                     priority=task_priority,
                     frequency=task_frequency,
-                    assigned_date=datetime.now(),
+                    assigned_date=task_datetime,
                 )
                 selected_pet.add_task(new_task)
                 scheduler.register_task(new_task)
@@ -182,7 +197,9 @@ with main_col3:
 st.divider()
 
 if owner:
-    tab1, tab2, tab3 = st.tabs(["🐾 Pets & Tasks", "📊 Dashboard", "📅 Schedule"])
+    tab1, tab2, tab3, tab4 = st.tabs(
+        ["🐾 Pets & Tasks", "📊 Dashboard", "📅 Schedule", "📆 Calendar"]
+    )
 
     with tab1:
         if not owner.pets:
@@ -494,5 +511,151 @@ if owner:
                         )
             else:
                 st.caption("No schedules yet")
+
+    with tab4:
+        all_tasks = owner.get_all_tasks()
+        tasks_with_dates = [t for t in all_tasks if t.assigned_date]
+
+        if not tasks_with_dates:
+            st.warning("⚠️ Add tasks with due dates to see them on the calendar!")
+        else:
+            cal_col1, cal_col2 = st.columns([1, 3])
+            with cal_col1:
+                selected_date = st.date_input(
+                    "Select Month",
+                    value=date.today().replace(day=1),
+                    key="calendar_month",
+                )
+            year = selected_date.year
+            month = selected_date.month
+
+            first_day = date(year, month, 1)
+            if month == 12:
+                last_day = date(year + 1, 1, 1) - timedelta(days=1)
+            else:
+                last_day = date(year, month + 1, 1) - timedelta(days=1)
+
+            start_weekday = first_day.weekday()
+            days_in_month = last_day.day
+
+            month_name = first_day.strftime("%B %Y")
+            st.markdown(f"### 📆 {month_name}")
+
+            header_cols = st.columns(7)
+            weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+            for i, day_name in enumerate(weekdays):
+                with header_cols[i]:
+                    st.markdown(f"**{day_name}**")
+
+            days = []
+            for _ in range(start_weekday):
+                days.append(None)
+            for d in range(1, days_in_month + 1):
+                days.append(d)
+
+            day_rows = [days[i : i + 7] for i in range(0, len(days), 7)]
+
+            for week in day_rows:
+                week_cols = st.columns(7)
+                for i, day_num in enumerate(week):
+                    with week_cols[i]:
+                        if day_num is None:
+                            st.write("")
+                        else:
+                            current_date = date(year, month, day_num)
+
+                            day_tasks = []
+                            for t in tasks_with_dates:
+                                if not t.assigned_date:
+                                    continue
+                                task_date = t.assigned_date.date()
+                                if task_date == current_date:
+                                    day_tasks.append(t)
+                                elif t.frequency == TaskFrequency.WEEKLY:
+                                    days_diff = (current_date - task_date).days
+                                    if days_diff > 0 and days_diff % 7 == 0:
+                                        day_tasks.append(t)
+                                elif t.frequency == TaskFrequency.MONTHLY:
+                                    if task_date.day == current_date.day:
+                                        day_tasks.append(t)
+                                elif t.frequency == TaskFrequency.DAILY:
+                                    day_tasks.append(t)
+
+                            is_today = current_date == date.today()
+                            bg_color = "#e8f5e9" if is_today else "#f5f5f5"
+                            border = (
+                                "2px solid #4CAF50" if is_today else "1px solid #ddd"
+                            )
+
+                            task_dots = ""
+                            if day_tasks:
+                                overdue_count = sum(
+                                    1
+                                    for t in day_tasks
+                                    if t.is_overdue()
+                                    and t.status != TaskStatus.COMPLETED
+                                )
+                                pending_count = sum(
+                                    1
+                                    for t in day_tasks
+                                    if t.status == TaskStatus.PENDING
+                                )
+                                done_count = sum(
+                                    1
+                                    for t in day_tasks
+                                    if t.status == TaskStatus.COMPLETED
+                                )
+
+                                if done_count > 0:
+                                    task_dots += "✅"
+                                if pending_count > 0:
+                                    task_dots += f"⏳{pending_count}"
+                                if overdue_count > 0:
+                                    task_dots += f"⚠️{overdue_count}"
+
+                            st.markdown(
+                                f"""
+                                <div style="
+                                    background-color: {bg_color};
+                                    border: {border};
+                                    border-radius: 4px;
+                                    padding: 4px;
+                                    text-align: center;
+                                    min-height: 60px;
+                                ">
+                                    <strong>{day_num}</strong><br>
+                                    <small>{task_dots}</small>
+                                </div>
+                                """,
+                                unsafe_allow_html=True,
+                            )
+
+                            if day_tasks:
+                                with st.popover(f"📋{day_num}"):
+                                    st.markdown(
+                                        f"### 📅 {current_date.strftime('%B %d, %Y')}"
+                                    )
+                                    for t in day_tasks:
+                                        pet = scheduler.get_pet_by_id(t.pet_id)
+                                        is_completed = t.status == TaskStatus.COMPLETED
+                                        freq_label = ""
+                                        if t.frequency == TaskFrequency.DAILY:
+                                            freq_label = " (daily)"
+                                        elif t.frequency == TaskFrequency.WEEKLY:
+                                            freq_label = " (weekly)"
+                                        elif t.frequency == TaskFrequency.MONTHLY:
+                                            freq_label = " (monthly)"
+                                        checked = st.checkbox(
+                                            f"{t.title} ({pet.name if pet else '?'}){freq_label}",
+                                            value=is_completed,
+                                            key=f"cal_task_{t.id}_{current_date.isoformat()}",
+                                        )
+                                        if checked and not is_completed:
+                                            scheduler.complete_task(t.id)
+                                            st.rerun()
+                                        elif not checked and is_completed:
+                                            t.mark_pending()
+                                            st.rerun()
+
 else:
     st.info("👆 **Create an owner first using the form above!**")
