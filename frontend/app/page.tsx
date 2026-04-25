@@ -136,6 +136,18 @@ export default function Home() {
     loadData();
   }
 
+  async function handleDeletePet(petId: string) {
+    if (!confirm("Delete this pet and all its tasks?")) return;
+    await api.deletePet(petId);
+    loadData();
+  }
+
+  async function handleDeleteTask(taskId: string) {
+    if (!confirm("Delete this task?")) return;
+    await api.deleteTask(taskId);
+    loadData();
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -485,8 +497,8 @@ export default function Home() {
             </div>
 
             <div className="p-6">
-              {activeTab === 0 && <PetsTasksTab owner={selectedOwner} onToggle={handleToggleTask} />}
-              {activeTab === 1 && <DashboardTab owner={selectedOwner} onToggle={handleToggleTask} />}
+              {activeTab === 0 && <PetsTasksTab owner={selectedOwner} onToggle={handleToggleTask} onDeletePet={handleDeletePet} onDeleteTask={handleDeleteTask} />}
+              {activeTab === 1 && <DashboardTab owner={selectedOwner} onToggle={handleToggleTask} onDeleteTask={handleDeleteTask} />}
               {activeTab === 2 && <ChatTab />}
               {activeTab === 3 && <CalendarTab owner={selectedOwner} onToggle={handleToggleTask} />}
             </div>
@@ -526,9 +538,13 @@ function StatCard({
 function PetsTasksTab({
   owner,
   onToggle,
+  onDeletePet,
+  onDeleteTask,
 }: {
   owner: Owner;
   onToggle: (taskId: string, completed: boolean) => void;
+  onDeletePet: (petId: string) => void;
+  onDeleteTask: (taskId: string) => void;
 }) {
   if (owner.pets.length === 0) {
     return (
@@ -544,14 +560,25 @@ function PetsTasksTab({
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
       {owner.pets.map((pet) => (
         <div key={pet.id} className="pet-card">
-          <div className="flex items-center gap-3 mb-2">
-            <span className="pet-icon">{SPECIES_ICONS[pet.animal] || "🐾"}</span>
-            <div>
-              <h3 className="pet-name">{pet.name}</h3>
-              <p className="pet-details">
-                {SPECIES_LABELS[pet.animal]} {pet.breed && `• ${pet.breed}`}
-              </p>
+          <div className="pet-card-header">
+            <div className="flex items-center gap-3 mb-2">
+              <span className="pet-icon">{SPECIES_ICONS[pet.animal] || "🐾"}</span>
+              <div>
+                <h3 className="pet-name">{pet.name}</h3>
+                <p className="pet-details">
+                  {SPECIES_LABELS[pet.animal]} {pet.breed && `• ${pet.breed}`}
+                </p>
+              </div>
             </div>
+            <button
+              onClick={() => onDeletePet(pet.id)}
+              className="delete-btn"
+              title="Delete pet"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+              </svg>
+            </button>
           </div>
           <p className="pet-details mb-4">
             {pet.age} {pet.age === 1 ? 'year' : 'years'} old • {pet.weight} lbs
@@ -588,7 +615,7 @@ function PetsTasksTab({
             </summary>
             <div className="mt-3 space-y-2">
               {pet.tasks.map((task) => (
-                <TaskItem key={task.id} task={task} onToggle={onToggle} />
+                <TaskItem key={task.id} task={task} onToggle={onToggle} onDelete={onDeleteTask} />
               ))}
             </div>
           </details>
@@ -601,9 +628,11 @@ function PetsTasksTab({
 function TaskItem({
   task,
   onToggle,
+  onDelete,
 }: {
   task: Task;
   onToggle: (taskId: string, completed: boolean) => void;
+  onDelete?: (taskId: string) => void;
 }) {
   const formatDateTime = (dateStr: string | null) => {
     if (!dateStr) return null;
@@ -642,6 +671,20 @@ function TaskItem({
           </span>
         </div>
       </div>
+      {onDelete && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete(task.id);
+          }}
+          className="delete-btn"
+          title="Delete task"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+          </svg>
+        </button>
+      )}
     </div>
   );
 }
@@ -649,9 +692,11 @@ function TaskItem({
 function DashboardTab({
   owner,
   onToggle,
+  onDeleteTask,
 }: {
   owner: Owner;
   onToggle: (taskId: string, completed: boolean) => void;
+  onDeleteTask?: (taskId: string) => void;
 }) {
   const allTasks = owner.pets.flatMap((p) => p.tasks);
   const [filter, setFilter] = useState("All");
@@ -755,6 +800,7 @@ function DashboardTab({
               <th style={{ width: '7rem' }}>Date & Time</th>
               <th style={{ width: '6rem' }}>Priority</th>
               <th style={{ width: '6rem' }}>Status</th>
+              <th style={{ width: '3rem' }}></th>
             </tr>
           </thead>
           <tbody>
@@ -799,6 +845,19 @@ function DashboardTab({
                     <span className={`badge badge-${task.status}`}>
                       {task.status.charAt(0).toUpperCase() + task.status.slice(1)}
                     </span>
+                  </td>
+                  <td>
+                    {onDeleteTask && (
+                      <button
+                        onClick={() => onDeleteTask(task.id)}
+                        className="delete-btn"
+                        title="Delete task"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+                        </svg>
+                      </button>
+                    )}
                   </td>
                 </tr>
               );
@@ -848,17 +907,6 @@ function ChatTab() {
     }
   ];
 
-  const faqData = [
-    { question: "How do I add a new pet?", answer: "To add a new pet, fill out the pet details in the 'Add Pet' card on the main dashboard. You'll need to provide the pet's name, species, age, and weight. Make sure you've created an owner first!" },
-    { question: "How do I schedule a task?", answer: "Tasks can be added using the 'Add Task' card on the dashboard. Select the pet, set a priority level, choose a frequency (daily, weekly, monthly, or one-time), and optionally set a due date and time." },
-    { question: "What do the priority levels mean?", answer: "Priority 1 (Low) is for non-urgent tasks, Priority 2 (Medium) is for normal tasks, and Priority 3 (High) is for urgent tasks that should be done soon." },
-    { question: "How do I mark a task as complete?", answer: "You can mark tasks as complete by clicking the checkbox next to the task in the Pets & Tasks view or the Dashboard view. Completed tasks will be shown with a checkmark." },
-    { question: "Can I edit a pet's information?", answer: "Currently, pet information can be viewed in the Pets & Tasks tab but editing is not yet supported. You can delete a pet by removing their tasks and recreation." },
-    { question: "How does the calendar work?", answer: "The Calendar tab shows all your tasks with due dates on a monthly view. Tasks recur based on their frequency - daily tasks appear every day, weekly tasks on their assigned day, and monthly tasks on their assigned date." },
-    { question: "What happens when a task becomes overdue?", answer: "Tasks that pass their due date without being completed are automatically marked as overdue and shown in red. You can filter for overdue tasks in the Dashboard view." },
-    { question: "How do I set up recurring tasks?", answer: "When creating a task, select a frequency option: 'Daily' for every day, 'Weekly' for once a week, 'Monthly' for once a month, or 'One-time' for a single task." },
-  ];
-
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -882,84 +930,24 @@ function ChatTab() {
     setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
     setIsTyping(true);
 
-    setTimeout(async () => {
+    try {
       let response: string;
 
       if (chatMode === "resources") {
-        try {
-          const searchResult = await api.searchPetResourceProducts(userMessage);
-          response = searchResult.result;
-        } catch {
-          response = "I couldn't search for pet resources at the moment. Make sure the backend is running and the GOOGLE_API_KEY is configured.";
-        }
+        const searchResult = await api.searchPetResourceProducts(userMessage);
+        response = searchResult.result;
       } else {
-        const answer = findAnswer(userMessage);
-        const taskQueryResult = await handleTaskQuery(userMessage);
-        
-        if (taskQueryResult) {
-          response = taskQueryResult;
-        } else if (answer) {
-          response = answer;
-        } else {
-          response = "I'm not sure about that specific question, but here are some things I can help with:\n\n• Adding new pets\n• Scheduling tasks\n• Understanding priority levels\n• Marking tasks complete\n• Using the calendar\n\nYou can also ask me about:\n• Tasks due today\n• Tasks due next week\n• Tasks due soon\n• Overdue tasks\n\nOr switch to Pet Resource Finder to search for products, shelters, and vets!";
-        }
+        const result = await api.chatbotQuery(userMessage);
+        response = result.result;
       }
       setMessages((prev) => [...prev, { role: "assistant", content: response }]);
-      setIsTyping(false);
-    }, 1000);
+    } catch {
+      setMessages((prev) => [...prev, { role: "assistant", content: "I couldn't process your request at the moment. Make sure the backend is running and GOOGLE_API_KEY is configured." }]);
+    }
+    setIsTyping(false);
   };
 
-  const formatTaskList = (tasks: Task[], title: string): string => {
-    if (tasks.length === 0) return `You have no ${title}.`;
-    const lines = [`Your ${title}:`, ""];
-    for (const task of tasks) {
-      const date = task.assigned_date ? new Date(task.assigned_date).toLocaleDateString() : "No due date";
-      lines.push(`• ${task.title} (${task.pet_name || "Unknown pet"}) - Due: ${date}`);
-    }
-    return lines.join("\n");
-  };
-
-  const handleTaskQuery = async (query: string): Promise<string | null> => {
-    const lower = query.toLowerCase();
-    
-    if (lower.includes("today") && (lower.includes("due") || lower.includes("task"))) {
-      const tasks = await api.getTasksDueToday();
-      return formatTaskList(tasks, "tasks due today");
-    }
-    if (lower.includes("next week") && (lower.includes("due") || lower.includes("task"))) {
-      const tasks = await api.getTasksNextWeek();
-      return formatTaskList(tasks, "tasks due next week");
-    }
-    if ((lower.includes("soon") || lower.includes("upcoming")) && (lower.includes("due") || lower.includes("task"))) {
-      const tasks = await api.getTasksDueSoon(3);
-      return formatTaskList(tasks, "tasks due soon (next 3 days)");
-    }
-    if (lower.includes("overdue")) {
-      const tasks = await api.getOverdueTasks();
-      return formatTaskList(tasks, "overdue tasks");
-    }
-    
-    return null;
-  };
-
-  const findAnswer = (query: string): string | null => {
-    const lowerQuery = query.toLowerCase();
-    for (const faq of faqData) {
-      if (faq.question.toLowerCase().includes(lowerQuery.split(" ")[0]) || lowerQuery.includes(faq.question.toLowerCase().split(" ")[0])) {
-        return faq.answer;
-      }
-    }
-    for (const faq of faqData) {
-      for (const word of lowerQuery.split(" ")) {
-        if (word.length > 3 && faq.question.toLowerCase().includes(word)) {
-          return faq.answer;
-        }
-      }
-    }
-    return null;
-  };
-
-return (
+  return (
     <div className="chat-container">
       <div className="chat-mode-selector">
         <div className="chat-mode-dropdown" ref={dropdownRef}>

@@ -28,6 +28,20 @@ export async function deleteOwner(ownerId: string) {
   return res.json();
 }
 
+export async function deletePet(petId: string) {
+  const res = await fetch(`${API_BASE}/api/pets/${petId}`, {
+    method: "DELETE",
+  });
+  return res.json();
+}
+
+export async function deleteTask(taskId: string) {
+  const res = await fetch(`${API_BASE}/api/tasks/${taskId}`, {
+    method: "DELETE",
+  });
+  return res.json();
+}
+
 export async function createPet(
   name: string,
   animal: string,
@@ -126,6 +140,15 @@ export async function searchPetResources(query: string): Promise<{ result: strin
 
 export async function searchPetResourceProducts(query: string): Promise<{ result: string; query: string }> {
   const res = await fetch(`${API_BASE}/api/pet-resource-search`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query }),
+  });
+  return res.json();
+}
+
+export async function chatbotQuery(query: string): Promise<{ result: string; query: string }> {
+  const res = await fetch(`${API_BASE}/api/chatbot`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ query }),

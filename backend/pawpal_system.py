@@ -29,7 +29,6 @@ class Task:
     status: TaskStatus = TaskStatus.PENDING
     pet_id: str = ""
     assigned_to: Optional[str] = None
-    notifications: list["Notification"] = field(default_factory=list)
     created_at: datetime = field(default_factory=datetime.now)
 
     def complete(self) -> None:
@@ -62,10 +61,6 @@ class Task:
         delta = datetime.now() - self.assigned_date
         return delta.days
 
-    def add_notification(self, notification: "Notification") -> None:
-        """Add a notification to the task."""
-        self.notifications.append(notification)
-
     def __str__(self) -> str:
         status_icon = (
             "✓"
@@ -78,35 +73,6 @@ class Task:
         return (
             f"Task(id={self.id!r}, title={self.title!r}, status={self.status.value!r})"
         )
-
-
-@dataclass
-class Constraint:
-    id: str
-    title: str
-    description: str
-    start_time: Optional[datetime] = None
-    end_time: Optional[datetime] = None
-    owner_id: str = ""
-
-    def is_available(self, check_time: datetime) -> bool:
-        """Check if the constraint is available at the given time."""
-        if not self.start_time or not self.end_time:
-            return True
-        return not (self.start_time <= check_time <= self.end_time)
-
-    def check_conflict(self, other: "Constraint") -> bool:
-        """Check if this constraint conflicts with another constraint."""
-        if not self.start_time or not other.start_time:
-            return False
-        return self.start_time <= other.end_time and other.start_time <= self.end_time
-
-    def get_duration(self) -> int:
-        """Return the duration of the constraint in minutes."""
-        if not self.start_time or not self.end_time:
-            return 0
-        delta = self.end_time - self.start_time
-        return int(delta.total_seconds() / 60)
 
 
 @dataclass
@@ -192,7 +158,6 @@ class Owner:
     name: str
     email: str = ""
     pets: list[Pet] = field(default_factory=list)
-    constraints: list[Constraint] = field(default_factory=list)
     preferences: dict = field(default_factory=dict)
     schedules: list["Schedule"] = field(default_factory=list)
     created_at: datetime = field(default_factory=datetime.now)
@@ -212,11 +177,6 @@ class Owner:
     def get_pet_by_id(self, pet_id: str) -> Optional[Pet]:
         """Get a pet by its ID."""
         return next((pet for pet in self.pets if pet.id == pet_id), None)
-
-    def add_constraint(self, constraint: Constraint) -> None:
-        """Add a constraint to the owner."""
-        constraint.owner_id = self.id
-        self.constraints.append(constraint)
 
     def get_pets(self) -> list[Pet]:
         """Return all pets owned by this owner."""
@@ -257,29 +217,6 @@ class Owner:
 
     def __str__(self) -> str:
         return f"{self.name} ({len(self.pets)} pets)"
-
-
-@dataclass
-class Notification:
-    id: str
-    message: str
-    scheduled_time: Optional[datetime] = None
-    task: Optional[Task] = None
-    is_sent: bool = False
-
-    def send(self) -> None:
-        """Send the notification and mark it as sent."""
-        self.is_sent = True
-        print(f"Notification [{self.id}]: {self.message}")
-
-    def reschedule(self, new_time: datetime) -> None:
-        """Reschedule the notification to a new time."""
-        self.scheduled_time = new_time
-        self.is_sent = False
-
-    def __str__(self) -> str:
-        status = "sent" if self.is_sent else "pending"
-        return f"Notification: {self.message} ({status})"
 
 
 @dataclass

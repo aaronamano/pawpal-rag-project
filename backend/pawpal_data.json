@@ -1,25 +1,116 @@
 {
   "owners": [
     {
-      "id": "owner_63725801",
-      "name": "Aaron",
-      "email": "",
+      "id": "owner_3a5bca91",
+      "name": "Sarah",
+      "email": "sarah@email.com",
       "pets": [
         {
-          "id": "pet_dfb09641",
-          "name": "Jack",
+          "id": "pet_8e799845",
+          "name": "Luma",
           "animal": "dog",
-          "breed": "",
-          "age": 1,
+          "breed": "Golden Retriever",
+          "age": 3,
           "weight": 10.0,
-          "tasks": [],
+          "tasks": [
+            {
+              "id": "task_5a33a32a",
+              "title": "Morning Walk",
+              "description": "Take Luma for a 30-min morning walk",
+              "frequency": "daily",
+              "priority": 2,
+              "assigned_date": "2026-04-26T18:00:00",
+              "status": "pending",
+              "pet_id": "pet_8e799845",
+              "created_at": "2026-04-25T12:01:56.676790"
+            },
+            {
+              "id": "task_38cc2c96",
+              "title": "Weekly grooming",
+              "description": "brush coat and trim nails",
+              "frequency": "weekly",
+              "priority": 1,
+              "assigned_date": "2026-04-27T10:00:00",
+              "status": "pending",
+              "pet_id": "pet_8e799845",
+              "created_at": "2026-04-25T12:05:15.990407"
+            },
+            {
+              "id": "task_cbeeb925",
+              "title": "vet checkup",
+              "description": "annual wellness exam",
+              "frequency": "monthly",
+              "priority": 3,
+              "assigned_date": "2026-05-07T09:00:00",
+              "status": "pending",
+              "pet_id": "pet_8e799845",
+              "created_at": "2026-04-25T12:06:27.691661"
+            },
+            {
+              "id": "task_d818653a",
+              "title": "test",
+              "description": "",
+              "frequency": "one_time",
+              "priority": 1,
+              "assigned_date": "2026-04-25T15:00:00",
+              "status": "pending",
+              "pet_id": "pet_8e799845",
+              "created_at": "2026-04-25T13:06:56.162623"
+            }
+          ],
           "health_info": {},
-          "owner_id": "owner_63725801",
-          "created_at": "2026-04-24T23:52:43.501273"
+          "owner_id": "owner_3a5bca91",
+          "created_at": "2026-04-25T11:57:50.095777"
+        },
+        {
+          "id": "pet_039b6654",
+          "name": "Milo",
+          "animal": "cat",
+          "breed": "Tabby",
+          "age": 2,
+          "weight": 10.0,
+          "tasks": [
+            {
+              "id": "task_63141e7d",
+              "title": "Feed breakfast",
+              "description": "Give Milo 1/4 cup dry food",
+              "frequency": "daily",
+              "priority": 3,
+              "assigned_date": "2026-05-26T07:30:00",
+              "status": "pending",
+              "pet_id": "pet_039b6654",
+              "created_at": "2026-04-25T12:09:45.820520"
+            },
+            {
+              "id": "task_671a98b7",
+              "title": "clean litter box",
+              "description": "Scoop and clean litter box",
+              "frequency": "daily",
+              "priority": 2,
+              "assigned_date": "2026-05-28T20:00:00",
+              "status": "pending",
+              "pet_id": "pet_039b6654",
+              "created_at": "2026-04-25T12:11:13.014836"
+            },
+            {
+              "id": "task_12fd71d1",
+              "title": "vet dental clearning",
+              "description": "annual dental cleaning",
+              "frequency": "one_time",
+              "priority": 2,
+              "assigned_date": "2026-05-10T11:00:00",
+              "status": "pending",
+              "pet_id": "pet_039b6654",
+              "created_at": "2026-04-25T12:11:56.718666"
+            }
+          ],
+          "health_info": {},
+          "owner_id": "owner_3a5bca91",
+          "created_at": "2026-04-25T11:58:09.730355"
         }
       ],
       "preferences": {},
-      "created_at": "2026-04-24T23:52:33.285733"
+      "created_at": "2026-04-25T11:56:58.180907"
     }
   ],
   "scheduler": {}

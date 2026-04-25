@@ -19,6 +19,7 @@ from pet_resource_search import (
     search_pet_resources_with_guardrails,
     search_pet_resources as search_pet_resources_func,
 )
+from chatbot import chatbot_with_guardrails
 
 app = FastAPI()
 
@@ -355,6 +356,16 @@ def search_pet_resources(data: PetResourceSearch):
 @app.post("/api/pet-resource-search")
 def search_pet_resource_products(data: PetResourceSearch):
     result = search_pet_resources_func(data.query)
+    return {"result": result, "query": data.query}
+
+
+class ChatbotQuery(BaseModel):
+    query: str
+
+
+@app.post("/api/chatbot")
+def chatbot_answer(data: ChatbotQuery):
+    result = chatbot_with_guardrails(data.query)
     return {"result": result, "query": data.query}
 
 
