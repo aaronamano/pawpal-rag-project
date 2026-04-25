@@ -934,7 +934,7 @@ function ChatTab() {
       let response: string;
 
       if (chatMode === "resources") {
-        const searchResult = await api.searchPetResourceProducts(userMessage);
+        const searchResult = await api.searchPetResourceProductsWithOwner(userMessage);
         response = searchResult.result;
       } else {
         const result = await api.chatbotQuery(userMessage);

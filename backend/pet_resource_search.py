@@ -1,10 +1,13 @@
 import os
 import re
+import json
 from typing import Optional
 from google import genai
 from dotenv import load_dotenv
 
 load_dotenv()
+
+DATA_FILE = "pawpal_data.json"
 
 ALLOWED_PET_CATEGORIES = [
     "pet food",
@@ -13,7 +16,6 @@ ALLOWED_PET_CATEGORIES = [
     "cat food",
     "bird food",
     "rabbit food",
-    "pet treats",
     "pet treats",
     "dog treats",
     "cat treats",
@@ -157,9 +159,6 @@ COMMERCIAL_KEYWORDS = [
     "vitamin",
     "supplements",
     "insurance",
-    "grooming",
-    "training",
-    "daycare",
 ]
 
 NON_PET_KEYWORDS = [
@@ -180,8 +179,6 @@ NON_PET_KEYWORDS = [
     "firearm",
     "ammunition",
     "adult toy",
-    "成人",
-    "情趣",
 ]
 
 PROMPT_INJECTION_PATTERNS = [
@@ -193,9 +190,6 @@ PROMPT_INJECTION_PATTERNS = [
     r"\bDAN\b.*\bdo\s+anything\b",
     r"\bdeveloper\s+mode\b",
     r"\bsudo\b.*\badmin\b",
-    r"-->",
-    r"<--",
-    r"'{1}.*DROP\s+TABLE",
     r"DROP\s+TABLE",
     r"DROP\s+DATABASE",
     r"DELETE\s+FROM",
@@ -206,16 +200,9 @@ PROMPT_INJECTION_PATTERNS = [
     r"onclick\s*=",
     r";\s*rm\s+-rf",
     r";\s*del\s+/[sq]",
-    r";\s*format\s+[c-z]:",
     r"BASE64",
     r"eval\s*\(",
     r"exec\s*\(",
-    r"\[IGNORE\]",
-    r"\[/IGNORE\]",
-    r"{{IGNORE}}",
-    r"{{/IGNORE}}",
-    r"\\x00",
-    r"\\x[0-9a-fA-F]{2}",
 ]
 
 PROMPT_INJECTION_KEYWORDS = [
@@ -246,32 +233,58 @@ PROMPT_INJECTION_KEYWORDS = [
 ]
 
 
+def load_owners_from_data(filepath: str = DATA_FILE) -> list[dict]:
+    """Load owner data from pawpal_data.json."""
+    try:
+        with open(filepath, "r") as f:
+            data = json.load(f)
+            return data.get("owners", [])
+    except (FileNotFoundError, json.JSONDecodeError):
+        return []
+
+
+def get_first_owner_with_pets(filepath: str = DATA_FILE) -> Optional[dict]:
+    """Get the first owner with registered pets."""
+    owners = load_owners_from_data(filepath)
+    for owner in owners:
+        if owner.get("pets") and len(owner.get("pets", [])) > 0:
+            return owner
+    return None
+
+
+def get_owner_pets(owner: dict) -> list[dict]:
+    """Extract pets from owner dict."""
+    return owner.get("pets", [])
+
+
+def get_owner_preferences(owner: dict) -> dict:
+    """Extract preferences from owner dict."""
+    return owner.get("preferences", {})
+
+
 def detect_prompt_injection(query: str) -> tuple[bool, Optional[str]]:
+    """Check for prompt injection attempts."""
     query_lower = query.lower()
 
     for pattern in PROMPT_INJECTION_PATTERNS:
         if re.search(pattern, query_lower, re.IGNORECASE):
-            return (
-                False,
-                "I cannot process requests that appear to contain instructions designed to bypass my guidelines.",
-            )
+            return False, "I cannot process that request."
 
     for keyword in PROMPT_INJECTION_KEYWORDS:
         if keyword in query_lower:
-            return (
-                False,
-                "I cannot help with requests that involve harmful or illegal activities.",
-            )
+            return False, "I cannot help with that."
 
     return True, None
 
 
 def init_gemini():
+    """Initialize Gemini client."""
     client = genai.Client()
     return client
 
 
 def is_pet_related_query(query: str) -> tuple[bool, Optional[str]]:
+    """Check if query is pet-related with light guardrails."""
     injection_valid, injection_error = detect_prompt_injection(query)
     if not injection_valid:
         return False, injection_error
@@ -280,27 +293,17 @@ def is_pet_related_query(query: str) -> tuple[bool, Optional[str]]:
 
     for keyword in NON_PET_KEYWORDS:
         if keyword in query_lower:
-            return (
-                False,
-                "This request is outside the scope of pet resources I can help with.",
-            )
+            return False, "That request is outside my pet-related scope."
 
-    category_match = False
     for category in ALLOWED_PET_CATEGORIES:
         if category in query_lower:
-            category_match = True
-            break
-
-    if not category_match:
-        return (
-            False,
-            "I can only help with pet-related resources like pet food, pet toys, pet shelters, pet stores, veterinarians, and other pet care topics. Your question doesn't appear to be about pets.",
-        )
+            return True, None
 
     return True, None
 
 
 def contains_allowed_retailer(text: str) -> bool:
+    """Check if text contains allowed retailers."""
     text_lower = text.lower()
     for retailer in ALLOWED_RETAILERS:
         if retailer in text_lower:
@@ -308,94 +311,73 @@ def contains_allowed_retailer(text: str) -> bool:
     return False
 
 
-def filter_commercial_results(results: list[dict]) -> list[dict]:
-    filtered = []
-    for result in results:
-        title = result.get("title", "").lower()
-        snippet = result.get("snippet", "").lower()
-        url = result.get("url", "").lower()
-        content = f"{title} {snippet} {url}"
+def format_pet_context(pets: list[dict]) -> str:
+    """Format pet information for prompts."""
+    if not pets:
+        return "No pets registered."
 
-        has_pet_keyword = any(keyword in content for keyword in COMMERCIAL_KEYWORDS)
-
-        if has_pet_keyword:
-            filtered.append(result)
-
-    return filtered
-
-
-def is_valid_pet_resource(result: dict) -> bool:
-    title = result.get("title", "").lower()
-    snippet = result.get("snippet", "").lower()
-    url = result.get("url", "").lower()
-    content = f"{title} {snippet} {url}"
-
-    for keyword in NON_PET_KEYWORDS:
-        if keyword in content:
-            return False
-
-    for pattern in RESOURCE_PATTERNS:
-        if re.search(pattern, url):
-            return True
-
-    has_pet_keyword = any(keyword in content for keyword in COMMERCIAL_KEYWORDS)
-    return has_pet_keyword
-
-
-def format_resource_response(results: list[dict], query: str) -> str:
-    if not results:
-        return "I couldn't find specific pet resources for that query. Try being more specific about what you're looking for (e.g., 'best dog food for puppies', 'cat toys at Chewy', 'dog shelters near me')."
-
-    lines = [f"I found these pet-related resources for '{query}':", ""]
-
-    for i, result in enumerate(results[:5], 1):
-        title = result.get("title", "No title")
-        url = result.get("url", "")
-        snippet = result.get("snippet", "")[:150]
-
-        lines.append(f"{i}. **{title}**")
-        if snippet:
-            lines.append(f"   {snippet}...")
-        if url:
-            lines.append(f"   🔗 {url}")
-        lines.append("")
-
-    lines.append("---")
-    lines.append(
-        "Note: These are general recommendations. Always consult your veterinarian for specific dietary or health advice for your pet."
-    )
+    lines = []
+    for pet in pets:
+        name = pet.get("name", "Unknown")
+        animal = pet.get("animal", "pet")
+        breed = pet.get("breed", "Unknown")
+        age = pet.get("age", "Unknown")
+        weight = pet.get("weight", "Unknown")
+        lines.append(f"- {name} ({animal}): {breed}, {age} years old, {weight} lbs")
 
     return "\n".join(lines)
 
 
-def search_pet_resources(query: str) -> str:
+def search_pet_resources(
+    query: str,
+    owner_data: Optional[dict] = None,
+    include_pet_context: bool = True,
+) -> str:
+    """Search for pet resources, optionally using owner/pet info."""
     is_valid, error_message = is_pet_related_query(query)
-
     if not is_valid:
         return error_message
 
     try:
         client = init_gemini()
     except ValueError as e:
-        return f"Error: {str(e)}. Please set the GOOGLE_API_KEY environment variable to use the search feature."
+        return f"Error: {str(e)}. Please set GOOGLE_API_KEY."
 
-    prompt = f"""You are a pet resource assistant. Search for helpful pet-related resources, products, and services based on this query: "{query}"
+    pet_context = ""
+    preferences = {}
 
-Focus on finding resources for:
-- Pet food, treats, and nutrition
-- Pet toys and accessories
-- Pet shelters and rescue organizations
-- Veterinarians and pet care services
-- Pet stores (Chewy, Petco, PetSmart, etc.)
+    if owner_data and include_pet_context:
+        pets = get_owner_pets(owner_data)
+        preferences = get_owner_preferences(owner_data)
 
-Only provide results from trusted pet-related sources. Do not provide medical advice - always recommend consulting a veterinarian.
+        if pets:
+            pet_context = f"""
+Owner Context:
+The owner has the following pets:
+{format_pet_context(pets)}
+"""
+            budget = preferences.get("budget", "")
+            if budget:
+                pet_context += f"Budget: {budget}\n"
 
-Provide a list of 3-5 relevant resources with:
-1. Resource name/title
-2. A brief description (1-2 sentences)
-3. Website URL if available
+            preferred = preferences.get("preferred_retailers", [])
+            if preferred:
+                pet_context += f"Preferred retailers: {', '.join(preferred)}\n"
 
-Format your response to be easily readable."""
+    prompt = f"""You are a pet resource assistant. Search for pet-related resources, products, and services based on: "{query}"
+{pet_context}
+Focus on:
+- Best prices, deals, discounts, and cheap options across retailers
+- Stock availability (in stock, low stock, out of stock)
+- Compare prices between Chewy, Petco, PetSmart, Amazon, Walmart, Target
+
+For each result provide:
+1. Product name and retailer
+2. Price (current, sale price, price comparison)
+3. Stock status (in stock/out of stock)
+4. Brief description
+
+Only provide results from trusted pet retailers. Recommend consulting a veterinarian for dietary advice."""
 
     try:
         response = client.models.generate_content(
@@ -406,23 +388,27 @@ Format your response to be easily readable."""
         results_text = response.text
 
         if not contains_allowed_retailer(results_text):
-            return f"I found some information, but it doesn't appear to be from recognized pet retailers or resources. Here are general guidelines:\n\n1. Check major pet retailers like Chewy (chewy.com), Petco, or PetSmart for products.\n2. Search for local pet shelters through Petfinder or your local animal services.\n3. Consult your local veterinarian for specific recommendations.\n\nTry being more specific about what pet supplies or services you're looking for!"
+            return f"I found info but couldn't verify retailer sources. Try checking Chewy, Petco, or PetSmart directly."
 
         return results_text
 
     except Exception as e:
-        return f"I encountered an error while searching: {str(e)}. Please try again or check if the GOOGLE_API_KEY is properly configured."
+        return f"Error searching: {str(e)}. Please check GOOGLE_API_KEY."
 
 
-def search_pet_resources_with_guardrails(query: str) -> str:
-    is_valid, error_message = is_pet_related_query(query)
+def search_pet_resources_with_owner(
+    query: str,
+    filepath: str = DATA_FILE,
+) -> str:
+    """Search for pet resources using owner data from pawpal_data.json."""
+    owner = get_first_owner_with_pets(filepath)
 
-    if not is_valid:
-        return error_message
+    if owner:
+        return search_pet_resources(query, owner_data=owner)
+    else:
+        return search_pet_resources(query, owner_data=None)
 
-    result = search_pet_resources(query)
 
-    if any(keyword in result.lower() for keyword in NON_PET_KEYWORDS):
-        return "I can only provide pet-related resources. Please ask about pet food, toys, shelters, veterinarians, or other pet care topics."
-
-    return result
+def search_pet_resources_simple(query: str) -> str:
+    """Simple search without owner context."""
+    return search_pet_resources(query, owner_data=None, include_pet_context=False)

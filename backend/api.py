@@ -16,8 +16,11 @@ from pawpal_system import (
     Schedule,
 )
 from pet_resource_search import (
-    search_pet_resources_with_guardrails,
-    search_pet_resources as search_pet_resources_func,
+    search_pet_resources,
+    search_pet_resources_with_owner,
+    search_pet_resources_simple,
+    detect_prompt_injection,
+    is_pet_related_query,
 )
 from chatbot import chatbot_with_guardrails
 
@@ -348,14 +351,26 @@ class PetResourceSearch(BaseModel):
 
 
 @app.post("/api/pet-resources")
-def search_pet_resources(data: PetResourceSearch):
-    result = search_pet_resources_with_guardrails(data.query)
-    return {"result": result, "query": data.query}
+def search_pet_resources_endpoint(data: PetResourceSearch):
+    result = is_pet_related_query(data.query)
+    if not result[0]:
+        return {"result": result[1], "query": data.query}
+    result_text = search_pet_resources(data.query)
+    return {"result": result_text, "query": data.query}
 
 
 @app.post("/api/pet-resource-search")
 def search_pet_resource_products(data: PetResourceSearch):
-    result = search_pet_resources_func(data.query)
+    result = detect_prompt_injection(data.query)
+    if not result[0]:
+        return {"result": result[1], "query": data.query}
+    result_text = search_pet_resources_simple(data.query)
+    return {"result": result_text, "query": data.query}
+
+
+@app.post("/api/pet-resource-search-owner")
+def search_pet_resource_products_with_owner(data: PetResourceSearch):
+    result = search_pet_resources_with_owner(data.query)
     return {"result": result, "query": data.query}
 
 

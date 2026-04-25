@@ -2,8 +2,9 @@ import os
 import re
 import sys
 import importlib.util
+import datetime
 from typing import Optional
-from google.genai import client as genai
+from google import genai
 from dotenv import load_dotenv
 
 load_dotenv()

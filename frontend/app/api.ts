@@ -147,6 +147,15 @@ export async function searchPetResourceProducts(query: string): Promise<{ result
   return res.json();
 }
 
+export async function searchPetResourceProductsWithOwner(query: string): Promise<{ result: string; query: string }> {
+  const res = await fetch(`${API_BASE}/api/pet-resource-search-owner`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query }),
+  });
+  return res.json();
+}
+
 export async function chatbotQuery(query: string): Promise<{ result: string; query: string }> {
   const res = await fetch(`${API_BASE}/api/chatbot`, {
     method: "POST",
