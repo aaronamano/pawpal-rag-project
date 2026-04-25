@@ -1,8 +1,19 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { Owner, Pet, Task, SystemStats, TaskFrequency } from "./types";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Owner, Task, SystemStats, TaskFrequency } from "./types";
 import * as api from "./api";
+
+const PET_GUARDRAIL_TRIGGERS = [
+  "recommend", "suggest", "what to buy", "what should i get",
+  "best food", "best toy", "best treat", "good food", "good treat",
+  "where to buy", "where can i get", "shop for", "find",
+  "resource", "resources", "product", "products",
+  "adopt", "shelter", "rescue", " foster",
+  "chewy", "petco", "petsmart",
+  "organic", "grain free", "raw diet",
+  "health", "nutrition", "food brand",
+];
 
 const SPECIES_ICONS: Record<string, string> = {
   dog: "🐕",
@@ -53,7 +64,7 @@ export default function Home() {
 
   const selectedOwner = owners.find((o) => o.id === selectedOwnerId) || null;
 
-  async function loadData() {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const [statsData, ownersData] = await Promise.all([
@@ -69,11 +80,11 @@ export default function Home() {
       console.error("Failed to load data:", e);
     }
     setLoading(false);
-  }
+  }, [selectedOwnerId]);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
   async function handleCreateOwner() {
     if (!newOwnerName.trim()) return;
@@ -487,7 +498,7 @@ export default function Home() {
             <div className="p-6">
               {activeTab === 0 && <PetsTasksTab owner={selectedOwner} onToggle={handleToggleTask} />}
               {activeTab === 1 && <DashboardTab owner={selectedOwner} onToggle={handleToggleTask} />}
-              {activeTab === 2 && <ChatTab owner={selectedOwner} />}
+              {activeTab === 2 && <ChatTab />}
               {activeTab === 3 && <CalendarTab owner={selectedOwner} onToggle={handleToggleTask} />}
             </div>
           </div>
@@ -810,11 +821,16 @@ function DashboardTab({
   );
 }
 
-function ChatTab({ owner }: { owner: Owner }) {
+function ChatTab() {
   const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
+  const [resourceMessages, setResourceMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
   const [input, setInput] = useState("");
+  const [resourceInput, setResourceInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [activeChat, setActiveChat] = useState<"assistant" | "resources">("assistant");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const resourceMessagesEndRef = useRef<HTMLDivElement>(null);
 
   const faqData = [
     { question: "How do I add a new pet?", answer: "To add a new pet, fill out the pet details in the 'Add Pet' card on the main dashboard. You'll need to provide the pet's name, species, age, and weight. Make sure you've created an owner first!" },
@@ -830,6 +846,10 @@ function ChatTab({ owner }: { owner: Owner }) {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    resourceMessagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [resourceMessages]);
 
   const formatTaskList = (tasks: Task[], title: string): string => {
     if (tasks.length === 0) return `You have no ${title}.`;
@@ -881,87 +901,199 @@ function ChatTab({ owner }: { owner: Owner }) {
     return null;
   };
 
-  const handleSend = async () => {
+const handleSend = async () => {
     if (!input.trim() || isTyping) return;
     const userMessage = input.trim();
     setInput("");
     setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
     setIsTyping(true);
 
+    const lowerMessage = userMessage.toLowerCase();
+    const isResourceQuery = PET_GUARDRAIL_TRIGGERS.some(
+      (trigger) => lowerMessage.includes(trigger)
+    ) && (lowerMessage.includes("pet") || lowerMessage.includes("dog") || lowerMessage.includes("cat") || lowerMessage.includes("animal"));
+
     setTimeout(async () => {
       let response: string;
-      const answer = findAnswer(userMessage);
-      const taskQueryResult = await handleTaskQuery(userMessage);
-      
-      if (taskQueryResult) {
-        response = taskQueryResult;
-      } else if (answer) {
-        response = answer;
+
+      if (isResourceQuery) {
+        setIsSearching(true);
+        try {
+          const searchResult = await api.searchPetResources(userMessage);
+          response = searchResult.result;
+        } catch {
+          response = "I couldn't search for pet resources at the moment. Make sure the backend is running and the GOOGLE_API_KEY is configured.";
+        }
+        setIsSearching(false);
       } else {
-        response = "I'm not sure about that specific question, but here are some things I can help with:\n\n• Adding new pets\n• Scheduling tasks\n• Understanding priority levels\n• Marking tasks complete\n• Using the calendar\n\nYou can also ask me about:\n• Tasks due today\n• Tasks due next week\n• Tasks due soon\n• Overdue tasks\n\nTry asking about one of these topics!";
+        const answer = findAnswer(userMessage);
+        const taskQueryResult = await handleTaskQuery(userMessage);
+        
+        if (taskQueryResult) {
+          response = taskQueryResult;
+        } else if (answer) {
+          response = answer;
+        } else {
+          response = "I'm not sure about that specific question, but here are some things I can help with:\n\n• Adding new pets\n• Scheduling tasks\n• Understanding priority levels\n• Marking tasks complete\n• Using the calendar\n\nYou can also ask me about:\n• Tasks due today\n• Tasks due next week\n• Tasks due soon\n• Overdue tasks\n\nTry asking about one of these topics!";
+        }
       }
       setMessages((prev) => [...prev, { role: "assistant", content: response }]);
       setIsTyping(false);
     }, 800 + Math.random() * 400);
   };
 
+  const handleResourceSend = async () => {
+    if (!resourceInput.trim() || isSearching) return;
+    const userMessage = resourceInput.trim();
+    setResourceInput("");
+    setResourceMessages((prev) => [...prev, { role: "user", content: userMessage }]);
+    setIsSearching(true);
+
+    setTimeout(async () => {
+      let response: string;
+      try {
+        const searchResult = await api.searchPetResourceProducts(userMessage);
+        response = searchResult.result;
+      } catch {
+        response = "I couldn't search for pet resources at the moment. Make sure the backend is running and the GOOGLE_API_KEY is configured.";
+      }
+      setResourceMessages((prev) => [...prev, { role: "assistant", content: response }]);
+      setIsSearching(false);
+    }, 800 + Math.random() * 400);
+  };
+
   return (
     <div className="chat-container">
-      <div className="chat-messages">
-        {messages.length === 0 && (
-          <div className="chat-welcome">
-            <div className="chat-welcome-icon">🐾</div>
-            <div className="chat-welcome-title">PawPal Assistant</div>
-            <div className="chat-welcome-text">Hi! I'm here to help you manage your pets and tasks. Ask me anything about:</div>
-            <div className="chatSuggestions">
-              <button className="chat-suggestion-btn" onClick={() => setInput("How do I add a new pet?")}>Adding pets</button>
-              <button className="chat-suggestion-btn" onClick={() => setInput("How do I schedule a task?")}>Scheduling tasks</button>
-              <button className="chat-suggestion-btn" onClick={() => setInput("What do priority levels mean?")}>Priority levels</button>
-              <button className="chat-suggestion-btn" onClick={() => setInput("How does the calendar work?")}>Calendar help</button>
-              <button className="chat-suggestion-btn" onClick={() => setInput("tasks due today")}>Tasks due today</button>
-              <button className="chat-suggestion-btn" onClick={() => setInput("tasks due next week")}>Tasks due next week</button>
-              <button className="chat-suggestion-btn" onClick={() => setInput("overdue tasks")}>Overdue tasks</button>
-            </div>
-          </div>
-        )}
-        {messages.map((msg, i) => (
-          <div key={i} className={`chat-message ${msg.role}`}>
-            <div className="chat-message-avatar">{msg.role === "assistant" ? "🐾" : "👤"}</div>
-            <div className="chat-message-content">
-              <div className="chat-message-text">{msg.content}</div>
-            </div>
-          </div>
-        ))}
-        {isTyping && (
-          <div className="chat-message assistant">
-            <div className="chat-message-avatar">🐾</div>
-            <div className="chat-message-content">
-              <div className="chat-typing">
-                <span className="chat-typing-dot"></span>
-                <span className="chat-typing-dot"></span>
-                <span className="chat-typing-dot"></span>
-              </div>
-            </div>
-          </div>
-        )}
-        <div ref={messagesEndRef} />
-      </div>
-      <div className="chat-input-container">
-        <input
-          type="text"
-          className="chat-input"
-          placeholder="Ask a question..."
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleSend()}
-          disabled={isTyping}
-        />
-        <button className="chat-send-btn" onClick={handleSend} disabled={isTyping || !input.trim()}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
-          </svg>
+      <div className="chat-tab-switcher">
+        <button
+          className={`chat-tab-btn ${activeChat === "assistant" ? "active" : ""}`}
+          onClick={() => setActiveChat("assistant")}
+        >
+          <span className="chat-tab-icon">🐾</span>
+          Assistant
+        </button>
+        <button
+          className={`chat-tab-btn ${activeChat === "resources" ? "active" : ""}`}
+          onClick={() => setActiveChat("resources")}
+        >
+          <span className="chat-tab-icon">🔍</span>
+          Pet Resources
         </button>
       </div>
+      {activeChat === "assistant" ? (
+        <>
+          <div className="chat-messages">
+            {messages.length === 0 && (
+              <div className="chat-welcome">
+                <div className="chat-welcome-icon">🐾</div>
+                <div className="chat-welcome-title">PawPal Assistant</div>
+                <div className="chat-welcome-text">Hi! I&apos;m here to help you manage your pets and tasks. Ask me anything about:</div>
+                <div className="chatSuggestions">
+                  <button className="chat-suggestion-btn" onClick={() => setInput("How do I add a new pet?")}>Adding pets</button>
+                  <button className="chat-suggestion-btn" onClick={() => setInput("How do I schedule a task?")}>Scheduling tasks</button>
+                  <button className="chat-suggestion-btn" onClick={() => setInput("What do priority levels mean?")}>Priority levels</button>
+                  <button className="chat-suggestion-btn" onClick={() => setInput("How does the calendar work?")}>Calendar help</button>
+                  <button className="chat-suggestion-btn" onClick={() => setInput("tasks due today")}>Tasks due today</button>
+                  <button className="chat-suggestion-btn" onClick={() => setInput("best dog food on Chewy")}>Search pet products</button>
+                  <button className="chat-suggestion-btn" onClick={() => setInput("pet shelters near me")}>Find shelters</button>
+                </div>
+              </div>
+            )}
+            {messages.map((msg, i) => (
+              <div key={i} className={`chat-message ${msg.role}`}>
+                <div className="chat-message-avatar">{msg.role === "assistant" ? "🐾" : "👤"}</div>
+                <div className="chat-message-content">
+                  <div className="chat-message-text">{msg.content}</div>
+                </div>
+              </div>
+            ))}
+            {isTyping && (
+              <div className="chat-message assistant">
+                <div className="chat-message-avatar">🐾</div>
+                <div className="chat-message-content">
+                  <div className="chat-typing">
+                    <span className="chat-typing-dot"></span>
+                    <span className="chat-typing-dot"></span>
+                    <span className="chat-typing-dot"></span>
+                  </div>
+                </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+          <div className="chat-input-container">
+            <input
+              type="text"
+              className="chat-input"
+              placeholder="Ask a question..."
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSend()}
+              disabled={isTyping}
+            />
+            <button className="chat-send-btn" onClick={handleSend} disabled={isTyping || !input.trim()}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
+              </svg>
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="chat-messages">
+            {resourceMessages.length === 0 && (
+              <div className="chat-welcome">
+                <div className="chat-welcome-icon">🔍</div>
+                <div className="chat-welcome-title">Pet Resource Finder</div>
+                <div className="chat-welcome-text">Find pet products, shelters, vets, and more. I&apos;ll search trusted pet retailers for you.</div>
+                <div className="chatSuggestions">
+                  <button className="chat-suggestion-btn" onClick={() => setResourceInput("best dog food for puppies")}>Best dog food</button>
+                  <button className="chat-suggestion-btn" onClick={() => setResourceInput("cat toys at Chewy")}>Cat toys</button>
+                  <button className="chat-suggestion-btn" onClick={() => setResourceInput("pet shelters near me")}>Find shelters</button>
+                  <button className="chat-suggestion-btn" onClick={() => setResourceInput("veterinarian near me")}>Find vets</button>
+                  <button className="chat-suggestion-btn" onClick={() => setResourceInput("organic pet food brands")}>Organic food</button>
+                  <button className="chat-suggestion-btn" onClick={() => setResourceInput("pet grooming near me")}>Grooming</button>
+                </div>
+              </div>
+            )}
+            {resourceMessages.map((msg, i) => (
+              <div key={i} className={`chat-message ${msg.role}`}>
+                <div className="chat-message-avatar">{msg.role === "assistant" ? "🔍" : "👤"}</div>
+                <div className="chat-message-content">
+                  <div className="chat-message-text">{msg.content}</div>
+                </div>
+              </div>
+            ))}
+            {isSearching && (
+              <div className="chat-message assistant">
+                <div className="chat-message-avatar">🔍</div>
+                <div className="chat-message-content">
+                  <div className="chat-typing">
+                    <span className="chat-searching-text">Searching pet resources...</span>
+                  </div>
+                </div>
+              </div>
+            )}
+            <div ref={resourceMessagesEndRef} />
+          </div>
+          <div className="chat-input-container">
+            <input
+              type="text"
+              className="chat-input"
+              placeholder="Search for pet products, shelters, vets..."
+              value={resourceInput}
+              onChange={(e) => setResourceInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleResourceSend()}
+              disabled={isSearching}
+            />
+            <button className="chat-send-btn" onClick={handleResourceSend} disabled={isSearching || !resourceInput.trim()}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
+              </svg>
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

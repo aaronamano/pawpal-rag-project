@@ -921,6 +921,47 @@ input, select, textarea, button {
   height: 28rem;
 }
 
+.chat-tab-switcher {
+  display: flex;
+  gap: 0.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.5rem;
+}
+
+.chat-tab-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1rem;
+  background: var(--background-muted);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--foreground-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.chat-tab-btn:hover {
+  background: var(--background-card);
+  color: var(--foreground);
+}
+
+.chat-tab-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+.chat-tab-icon {
+  font-size: 1rem;
+}
+
 .chat-messages {
   flex: 1;
   overflow-y: auto;
@@ -1032,6 +1073,13 @@ input, select, textarea, button {
   display: flex;
   gap: 0.25rem;
   padding: 0.25rem 0;
+  align-items: center;
+}
+
+.chat-searching-text {
+  font-size: 0.8125rem;
+  color: var(--foreground-muted);
+  font-style: italic;
 }
 
 .chat-typing-dot {

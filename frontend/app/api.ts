@@ -1,4 +1,4 @@
-import { Owner, Pet, Task, SystemStats } from "./types";
+import { Owner, Task, SystemStats } from "./types";
 
 const API_BASE = "http://localhost:8000";
 
@@ -112,5 +112,23 @@ export async function getTasksNextWeek(): Promise<Task[]> {
 
 export async function getOverdueTasks(): Promise<Task[]> {
   const res = await fetch(`${API_BASE}/api/tasks/overdue`);
+  return res.json();
+}
+
+export async function searchPetResources(query: string): Promise<{ result: string; query: string }> {
+  const res = await fetch(`${API_BASE}/api/pet-resources`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query }),
+  });
+  return res.json();
+}
+
+export async function searchPetResourceProducts(query: string): Promise<{ result: string; query: string }> {
+  const res = await fetch(`${API_BASE}/api/pet-resource-search`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query }),
+  });
   return res.json();
 }

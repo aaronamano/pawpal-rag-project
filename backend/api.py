@@ -15,6 +15,10 @@ from pawpal_system import (
     TaskFrequency,
     Schedule,
 )
+from pet_resource_search import (
+    search_pet_resources_with_guardrails,
+    search_pet_resources as search_pet_resources_func,
+)
 
 app = FastAPI()
 
@@ -336,6 +340,22 @@ def get_overdue_tasks():
         }
         for t in tasks
     ]
+
+
+class PetResourceSearch(BaseModel):
+    query: str
+
+
+@app.post("/api/pet-resources")
+def search_pet_resources(data: PetResourceSearch):
+    result = search_pet_resources_with_guardrails(data.query)
+    return {"result": result, "query": data.query}
+
+
+@app.post("/api/pet-resource-search")
+def search_pet_resource_products(data: PetResourceSearch):
+    result = search_pet_resources_func(data.query)
+    return {"result": result, "query": data.query}
 
 
 if __name__ == "__main__":

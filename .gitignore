@@ -5,6 +5,7 @@ backend/tests/__pycache__
 backend/__pycache__
 backend/.pytest_cache
 backend/venv
+backend/.env
 
 .ruff_cache/
 .agents/
