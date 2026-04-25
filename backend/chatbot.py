@@ -17,7 +17,8 @@ def load_data_storage_module():
     return module
 
 
-storage = load_data_storage_module().DataStorage()
+DATA_FILE = "pawpal_data.json"
+storage = load_data_storage_module().DataStorage(DATA_FILE)
 
 
 NON_PET_KEYWORDS = [
@@ -220,8 +221,8 @@ def format_pawpal_data_summary(owners) -> str:
                     try:
                         dt = (
                             task_date
-                            if isinstance(task_date, datetime)
-                            else datetime.fromisoformat(str(task_date))
+                            if isinstance(task_date, datetime.datetime)
+                            else datetime.datetime.fromisoformat(str(task_date))
                         )
                         date_str = f" due={dt.strftime('%m/%d %H:%M')}"
                     except:
@@ -257,8 +258,9 @@ Your Guidelines:
 1. Only answer questions about the pets and tasks listed in the provided data
 2. If the user asks about a pet or task not in the data, state that it's not registered
 3. Provide helpful, concise information about the pet's care tasks, schedule, and status
-4. For task-related questions, include priority and status (pending/completed/overdue)
-5. Be friendly and helpful
+4. For task-related questions, include priority, status (pending/completed/overdue), AND due date (e.g., "due: 04/27 10:00")
+5. ALWAYS include the due date for every task mentioned in your response
+6. Be friendly and helpful
 
 === DATA START ===
 {data_summary}
