@@ -15,8 +15,8 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: "PawPal+ Dashboard",
-  description: "Pet care task management dashboard",
+  title: "PawPal+ | Cozy Pet Care",
+  description: "A warm and nurturing space to care for your beloved pets",
 };
 
 export default function RootLayout({
