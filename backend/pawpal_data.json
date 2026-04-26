@@ -107,6 +107,18 @@
           "health_info": {},
           "owner_id": "owner_3a5bca91",
           "created_at": "2026-04-25T11:58:09.730355"
+        },
+        {
+          "id": "pet_b2d6d531",
+          "name": "Kirk",
+          "animal": "dog",
+          "breed": "",
+          "age": 1,
+          "weight": 10.0,
+          "tasks": [],
+          "health_info": {},
+          "owner_id": "owner_3a5bca91",
+          "created_at": "2026-04-25T21:58:49.486639"
         }
       ],
       "preferences": {},
