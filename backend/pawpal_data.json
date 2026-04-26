@@ -111,6 +111,74 @@
       ],
       "preferences": {},
       "created_at": "2026-04-25T11:56:58.180907"
+    },
+    {
+      "id": "owner_3c6ba7e5",
+      "name": "Aaron",
+      "email": "",
+      "pets": [
+        {
+          "id": "pet_c955231f",
+          "name": "Charlie",
+          "animal": "dog",
+          "breed": "Bulldog",
+          "age": 3,
+          "weight": 50.0,
+          "tasks": [
+            {
+              "id": "task_439701db",
+              "title": "feed him",
+              "description": "give him steak, liver, and pig ears",
+              "frequency": "daily",
+              "priority": 2,
+              "assigned_date": "2026-05-01T11:00:00",
+              "status": "pending",
+              "pet_id": "pet_c955231f",
+              "created_at": "2026-04-25T15:55:16.298132"
+            },
+            {
+              "id": "task_2a7b3fc1",
+              "title": "vet appointment",
+              "description": "eye checkup",
+              "frequency": "one_time",
+              "priority": 3,
+              "assigned_date": "2026-05-02T11:00:00",
+              "status": "completed",
+              "pet_id": "pet_c955231f",
+              "created_at": "2026-04-25T15:55:45.959207"
+            }
+          ],
+          "health_info": {},
+          "owner_id": "owner_3c6ba7e5",
+          "created_at": "2026-04-25T15:54:31.231687"
+        },
+        {
+          "id": "pet_24306370",
+          "name": "Amy",
+          "animal": "bird",
+          "breed": "falcon",
+          "age": 3,
+          "weight": 20.0,
+          "tasks": [
+            {
+              "id": "task_c94e9eba",
+              "title": "fly",
+              "description": "",
+              "frequency": "monthly",
+              "priority": 1,
+              "assigned_date": "2026-05-04T14:00:00",
+              "status": "pending",
+              "pet_id": "pet_24306370",
+              "created_at": "2026-04-25T15:56:20.060654"
+            }
+          ],
+          "health_info": {},
+          "owner_id": "owner_3c6ba7e5",
+          "created_at": "2026-04-25T15:54:42.295591"
+        }
+      ],
+      "preferences": {},
+      "created_at": "2026-04-25T15:54:14.363701"
     }
   ],
   "scheduler": {}
