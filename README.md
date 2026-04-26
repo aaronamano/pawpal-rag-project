@@ -201,18 +201,5 @@ A premium mix that offers more variety than standard seed blends. It contains se
 
 This project taught be about how to use guardrails for AI chatbots and handle prompt injections. As a result, this taught me how to be a better AI engineer. Additionally, this project taught me that testing is important when implementing new feature, and it kinda helped me figure out what works vs what doesn't work. I was able to become a better problem solver and ultimately a better engineer by implementing error handling and testing.
 
-
-
-## Reliability and Eval
-
-The backend includes a comprehensive test suite in `tests/test_pawpal.py` covering:
-
-- **Automated tests**: 6 test classes with 60+ test cases for task scheduling, recurrence, sorting, conflict detection, edge cases, and pet resource guardrails.
-- **Confidence scoring**: The chatbot system rates query confidence when validating pet-related requests via `is_pet_related_query()`.
-- **Guardrails & logging**: Prompt injection prevention (10+ attack vectors tested), retailer detection, and scope validation with error messages.
-- **Human evaluation**: Sample interactions in this README demonstrate expected AI behavior for analyze and resource-finder modes.
-
-**Summary**: 54 out of 60 tests passed; 6 tests failed due to missing `filter_commercial_results` and `is_valid_pet_resource` functions in `pet_resource_search.py`. All guardrail tests (prompt injection, scope validation, retailer detection) passed with 100% accuracy. Task scheduling logic is fully validated; confidence scoring averages 0.85 when context is provided.
-
 ## Demo Video
 This is my demo video: https://youtu.be/Qg79VYTAaTA
